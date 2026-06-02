@@ -4,6 +4,7 @@ const state = {
   bfiAnswers: {},
   bfiScores: null,
   currentTaskIndex: 0,
+  taskAnswers: [],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -79,6 +80,16 @@ function showScreen(name) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function updateTaskProgressBar() {
+  if (!$("progressFill") || !state.config?.scenario_tasks?.length) return;
+
+  const total = state.config.scenario_tasks.length;
+  const completed = state.currentTaskIndex;
+
+  const progress = 55 + Math.round((completed / total) * 35);
+  $("progressFill").style.width = `${progress}%`;
+}
+
 function showError(id, message) {
   const el = $(id);
   el.textContent = message;
@@ -149,6 +160,170 @@ function updateRadioSelectedStyle(questionId) {
   });
 }
 
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatReviewText(text) {
+  return escapeHtml(text)
+    .replace(/\n/g, "<br>")
+    .replace(/【场景背景】/g, '<strong class="prompt-label">【场景背景】</strong>')
+    .replace(/【心理小剧场】/g, '<strong class="prompt-label">【心理小剧场】</strong>');
+}
+
+function getBfiValueLabel(value) {
+  const labels = {
+    1: "非常不同意",
+    2: "比较不同意",
+    3: "一般/不确定",
+    4: "比较同意",
+    5: "非常同意",
+  };
+  return labels[value] || "";
+}
+
+function getBfiAnsweredQuestions() {
+  if (!state.config?.bfi_questions) return [];
+
+  return getSortedBfiQuestions()
+    .filter((q) => state.bfiAnswers[q.id] !== undefined)
+    .map((q) => ({
+      ...q,
+      number: Number(String(q.id).replace("q", "")),
+      value: state.bfiAnswers[q.id],
+    }));
+}
+
+function getBfiReviewItemsHtml(compact = false) {
+  const answered = getBfiAnsweredQuestions();
+
+  if (!answered.length) {
+    return `<p class="review-empty">还没有作答。</p>`;
+  }
+
+  return answered.map((item) => `
+    <div class="bfi-answer-card ${compact ? "compact" : ""}">
+      <strong>第 ${item.number} 题</strong>
+      <p>${escapeHtml(item.text)}</p>
+      <span>已选：${item.value} 分（${getBfiValueLabel(item.value)}）</span>
+    </div>
+  `).join("");
+}
+
+function renderBfiReviewList() {
+  const listEl = $("bfiReviewList");
+  const detailsEl = $("bfiReviewDetails");
+
+  if (!listEl || !detailsEl || !state.config?.bfi_questions) return;
+
+  const total = state.config.bfi_questions.length;
+  const answered = getBfiAnsweredQuestions().length;
+
+  const summaryEl = detailsEl.querySelector("summary");
+  if (summaryEl) {
+    summaryEl.innerHTML = `已答问题回顾（<span class="review-count-current">${answered}</span> / ${total}）`;
+  }
+
+  listEl.innerHTML = getBfiReviewItemsHtml(true);
+}
+
+function renderBfiReviewPanel(containerId) {
+  const el = $(containerId);
+  if (!el) return;
+
+  const total = state.config?.bfi_questions?.length || 0;
+  const answered = getBfiAnsweredQuestions().length;
+
+  if (!answered) {
+    el.innerHTML = "";
+    el.classList.add("hidden");
+    return;
+  }
+
+  el.classList.remove("hidden");
+  el.innerHTML = `
+    <details>
+      <summary>问卷答案回看（${answered} / ${total}）</summary>
+      <div class="review-list">
+        ${getBfiReviewItemsHtml(false)}
+      </div>
+    </details>
+  `;
+}
+
+function saveTaskAnswer(task, answer1, answer2) {
+  const saved = {
+    task_id: task.task_id,
+    task_name: task.task_name,
+    main_prompt: task.main_prompt,
+    followup_prompt: task.followup_prompt,
+    user_answer_1: answer1,
+    user_answer_2: answer2,
+  };
+
+  const existingIndex = state.taskAnswers.findIndex(
+    (item) => item.task_id === task.task_id
+  );
+
+  if (existingIndex >= 0) {
+    state.taskAnswers[existingIndex] = saved;
+  } else {
+    state.taskAnswers.push(saved);
+  }
+}
+
+function renderTaskAnswerReview(containerId) {
+  const el = $(containerId);
+  if (!el) return;
+
+  const answers = [...state.taskAnswers].sort(
+    (a, b) => Number(a.task_id) - Number(b.task_id)
+  );
+
+  if (!answers.length) {
+    el.innerHTML = "";
+    el.classList.add("hidden");
+    return;
+  }
+
+  el.classList.remove("hidden");
+  el.innerHTML = `
+    <details>
+      <summary>已答情境内容回看（${answers.length} 轮）</summary>
+      <div class="review-list">
+        ${answers.map((item) => `
+          <div class="review-item">
+            <h3>第 ${item.task_id} 轮：${escapeHtml(item.task_name)}</h3>
+
+            <div class="review-block">
+              <p>${formatReviewText(item.main_prompt)}</p>
+            </div>
+
+            <div class="review-block user-answer">
+              <strong>我的回答 1：</strong>
+              <p>${formatReviewText(item.user_answer_1)}</p>
+            </div>
+
+            <div class="review-block">
+              <p>${formatReviewText(item.followup_prompt)}</p>
+            </div>
+
+            <div class="review-block user-answer">
+              <strong>我的回答 2：</strong>
+              <p>${formatReviewText(item.user_answer_2)}</p>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </details>
+  `;
+}
+
 function renderBfi() {
   const list = $("bfiList");
   list.innerHTML = "";
@@ -156,6 +331,7 @@ function renderBfi() {
   const questions = getSortedBfiQuestions();
 
   updateBfiProgress();
+  renderBfiReviewList();
 
   questions.forEach((q, index) => {
     const row = document.createElement("div");
@@ -182,6 +358,7 @@ function renderBfi() {
       state.bfiAnswers[event.target.name] = Number(event.target.value);
       updateRadioSelectedStyle(event.target.name);
       updateBfiProgress();
+      renderBfiReviewList();
       hideError("bfiError");
     }
   };
@@ -210,6 +387,7 @@ async function startSession() {
   state.bfiAnswers = {};
   state.bfiScores = null;
   state.currentTaskIndex = 0;
+  state.taskAnswers = [];
 
   localStorage.setItem("participant_id", state.participantId);
 
@@ -223,17 +401,17 @@ async function submitBfi() {
   const questions = getSortedBfiQuestions();
   const answers = {};
 
-  for (const q of questions) {
-    const selected = document.querySelector(`input[name="${q.id}"]:checked`);
+for (const q of questions) {
+  const selected = document.querySelector(`input[name="${q.id}"]:checked`);
 
-    if (!selected) {
-      const qNumber = String(q.id).replace("q", "");
-      showError("bfiError", `请完成第 ${qNumber} 题。`);
-      return;
-    }
-
-    answers[q.id] = Number(selected.value);
+  if (!selected) {
+    const qNumber = String(q.id).replace("q", "");
+    showError("bfiError", `请完成第 ${qNumber} 题。`);
+    return;
   }
+
+  answers[q.id] = Number(selected.value);
+}
 
   try {
     const data = await api("/api/bfi/submit", {
@@ -247,6 +425,7 @@ async function submitBfi() {
     state.bfiAnswers = answers;
     state.bfiScores = data.scores;
     state.currentTaskIndex = 0;
+    state.taskAnswers = [];
 
     renderTask();
     showScreen("task");
@@ -257,24 +436,41 @@ async function submitBfi() {
 
 function renderTask() {
   hideError("taskError");
+
+  updateTaskProgressBar();
+
   const task = state.config.scenario_tasks[state.currentTaskIndex];
+
+  renderTaskAnswerReview("taskReview");
+
   $("taskCounter").innerText = `第 ${state.currentTaskIndex + 1} 轮 / 共 ${state.config.scenario_tasks.length} 轮`;
   $("taskName").innerText = task.task_name;
+
   // 不在页面展示目标人格维度，避免用户按标签作答。
   const targetTraitsEl = $("targetTraits");
   if (targetTraitsEl) {
     targetTraitsEl.innerText = "";
     targetTraitsEl.classList.add("hidden");
   }
-  $("mainPrompt").innerText = task.main_prompt;
-  $("followupPrompt").innerText = task.followup_prompt;
+
+  $("mainPrompt").innerHTML = formatReviewText(task.main_prompt);
+  $("followupPrompt").innerHTML = formatReviewText(task.followup_prompt);
+
   $("answer1").value = "";
   $("answer2").value = "";
+
   $("answer1Min").innerText = task.min_chars_1;
   $("answer2Min").innerText = task.min_chars_2;
-  $("submitTaskBtn").innerText = state.currentTaskIndex === state.config.scenario_tasks.length - 1
-    ? "提交并生成我的职场人格画像"
-    : "提交本轮，进入下一轮";
+
+  const currentRound = state.currentTaskIndex + 1;
+  const totalRounds = state.config.scenario_tasks.length;
+  const nextRound = currentRound + 1;
+
+  $("submitTaskBtn").innerText =
+    currentRound === totalRounds
+      ? "提交本轮，生成结果"
+      : `提交本轮，进入第 ${nextRound} / ${totalRounds} 轮`;
+
   updateCounts();
 }
 
@@ -312,6 +508,9 @@ async function submitTask() {
         user_answer_2: answer2,
       }),
     });
+
+    saveTaskAnswer(task, answer1, answer2);
+
     submitted = true;
     state.currentTaskIndex += 1;
     if (state.currentTaskIndex >= state.config.scenario_tasks.length) {
@@ -339,6 +538,9 @@ function toPercentScore(score5) {
 }
 
 function renderFinish() {
+  renderBfiReviewPanel("bfiFinishReview");
+  renderTaskAnswerReview("taskFinishReview");
+
   const scores = state.bfiScores || {};
 
   $("scoreBox").innerHTML = REPORT_TRAITS.map((trait) => {
@@ -371,6 +573,7 @@ function restart() {
   state.bfiAnswers = {};
   state.bfiScores = null;
   state.currentTaskIndex = 0;
+  state.taskAnswers = [];
 
   document.querySelectorAll("input[type=radio]").forEach((input) => {
     input.checked = false;
@@ -381,6 +584,7 @@ function restart() {
   });
 
   updateBfiProgress();
+  renderBfiReviewList();
   showScreen("cover");
 }
 

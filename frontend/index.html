@@ -10,11 +10,14 @@
   <main class="app-shell">
     <section id="screen-cover" class="screen cover-screen active">
       <div class="cover-content">
-        <p class="eyebrow">Workplace Personality Quest</p>
-        <h1>《职场人格副本》</h1>
-        <p class="cover-subtitle">今天，你的人生副本是：职场打工人的一天</p>
+        <p class="eyebrow">Your Workplace Persona</p>
+        <h1>「职场人格副本」</h1>
+        <p class="cover-subtitle">
+          今天，你的人生副本是：职场打工人的一天
+        </p>
         <button class="primary cover-action" id="coverStartBtn">开始测评</button>
       </div>
+
       <p class="consent-note">
         本测评仅用于学习、研究与产品体验，数据会匿名化处理；你可以自愿参与。点击开始即表示你已知情并同意参与。
       </p>
@@ -23,9 +26,9 @@
     <div id="flowChrome" class="hidden">
       <header class="hero">
         <div>
-          <p class="eyebrow">Workplace Personality Quest</p>
+          <p class="eyebrow">Your Workplace Persona</p>
           <h1>职场人格副本</h1>
-          <p class="subtitle">完成一组简短自评和职场情境回答，生成你的职场人格画像。</p>
+          <p class="subtitle">通过 30 道人格自评题 + 6 轮职场情境回答，生成你的职场人格画像。</p>
         </div>
         <div class="status-card">
           <span>当前阶段</span>
@@ -62,7 +65,7 @@
         <label>身份类型
           <select id="identityType">
             <option value="">不填写</option>
-            <option>大学生</option>
+            <option>本科生</option>
             <option>研究生</option>
             <option>职场人士</option>
             <option>其他</option>
@@ -79,19 +82,33 @@
       <h2>2. 人格倾向自评</h2>
       <p class="hint">请根据你的真实情况完成以下 30 个陈述，从 1-5 分选择你的同意程度。你可以随时滚动回看并修改已经选择的答案。</p>
       <div class="bfi-sticky-panel" id="bfiStickyPanel">
-        <div class="bfi-progress-line">
-          <span id="bfiProgressText">已完成 <strong>0</strong> / 30 题</span>
-          <span class="bfi-progress-percent" id="bfiProgressPercent">0%</span>
-        </div>
-        <div class="bfi-mini-bar"><div id="bfiMiniFill"></div></div>
-        <div class="scale-legend" aria-label="1到5分含义说明">
-          <span><strong>1</strong> 非常不同意</span>
-          <span><strong>2</strong> 比较不同意</span>
-          <span><strong>3</strong> 一般/不确定</span>
-          <span><strong>4</strong> 比较同意</span>
-          <span><strong>5</strong> 非常同意</span>
-        </div>
+        <details class="bfi-panel-section">
+          <summary>
+            <span id="bfiProgressText">已完成 <strong>0</strong> / 30 题</span>
+            <span class="bfi-progress-percent" id="bfiProgressPercent">0%</span>
+          </summary>
+
+          <div class="bfi-mini-bar">
+            <div id="bfiMiniFill"></div>
+          </div>
+        </details>
+
+        <details class="bfi-panel-section review-mini" id="bfiReviewDetails">
+          <summary>已答问题回顾（<span class="review-count-current">0</span> / 30）</summary>
+          <div id="bfiReviewList" class="bfi-review-list">
+            <p class="review-empty">还没有作答。</p>
+          </div>
+        </details>
       </div>
+
+      <div class="scale-legend scale-legend-main" aria-label="1到5分含义说明">
+        <span><strong>1</strong> 非常不同意</span>
+        <span><strong>2</strong> 比较不同意</span>
+        <span><strong>3</strong> 一般/不确定</span>
+        <span><strong>4</strong> 比较同意</span>
+        <span><strong>5</strong> 非常同意</span>
+      </div>
+
       <div id="bfiList"></div>
       <p id="bfiError" class="error hidden"></p>
       <button class="primary" id="submitBfiBtn">提交测评，进入职场情境任务</button>
@@ -106,6 +123,7 @@
         <span class="tag hidden" id="targetTraits"></span>
       </div>
 
+      <div id="taskReview" class="review-panel hidden"></div>
       <div class="chat-box">
         <div class="bubble system" id="mainPrompt"></div>
         <textarea id="answer1" rows="6" placeholder="请自由回答，至少 40 字。不要填写真实姓名、手机号、住址等隐私信息。"></textarea>
@@ -123,8 +141,10 @@
     <section id="screen-finish" class="card screen">
       <h2>我的职场人格画像</h2>
       <p class="hint">下面是基于本次作答生成的五个维度结果，分数已转换为百分制，便于直观看到不同倾向的强弱。</p>
+      <div id="bfiFinishReview" class="review-panel hidden"></div>
+      <div id="taskFinishReview" class="review-panel hidden"></div>
       <div class="result-box" id="scoreBox"></div>
-      <p class="thanks">感谢参与！</p>
+      <p class="thanks">感谢您的参与！</p>
       <button class="secondary" id="restartBtn">重新开始</button>
     </section>
   </main>

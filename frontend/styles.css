@@ -145,22 +145,36 @@ h2 {
   justify-content: center;
   text-align: center;
   width: min(680px, 100%);
+  transform: translateY(-34px);
+}
+
+.cover-content .eyebrow {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  margin-bottom: 12px;
+  font-style: italic;
 }
 
 .cover-content h1 {
   font-size: clamp(38px, 7vw, 76px);
   line-height: 1.05;
+  font-style: italic;
 }
 
 .cover-subtitle {
   margin: 18px 0 30px;
   color: #344054;
-  font-size: clamp(18px, 2.5vw, 25px);
+  font-size: clamp(16px, 2vw, 22px);
   line-height: 1.6;
+  font-style: italic;
 }
 
 .cover-action {
-  min-width: 160px;
+  min-width: 180px;
+  padding: 15px 24px;
+  font-size: 16px;
+  margin-top: 30px;
 }
 
 .consent-note {
@@ -261,6 +275,8 @@ body.bfi-mode .app-shell {
   left: 24px;
   z-index: 1000;
   width: 205px;
+  max-height: calc(100vh - 190px);
+  overflow: hidden;
   margin: 0;
   padding: 14px;
   background: rgba(255, 255, 255, 0.96);
@@ -270,14 +286,44 @@ body.bfi-mode .app-shell {
   border-radius: 8px;
 }
 
-.bfi-sticky-panel::before {
-  content: "问卷进度";
-  display: block;
-  margin-bottom: 9px;
+.bfi-panel-section {
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.bfi-panel-section:last-child {
+  border-bottom: none;
+}
+
+.bfi-panel-section summary {
+  cursor: pointer;
+  padding: 10px 0;
   color: var(--muted);
-  font-size: 12px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  font-size: 13px;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.bfi-panel-section summary strong,
+.review-count-current {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.bfi-panel-section .bfi-progress-percent {
+  display: inline-block;
+  margin-left: 8px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.bfi-panel-section .bfi-mini-bar {
+  margin: 4px 0 12px;
+}
+
+.scale-legend-main {
+  margin: 18px 0 12px;
+  grid-template-columns: repeat(5, 1fr);
 }
 
 #screen-bfi.active {
@@ -316,6 +362,7 @@ body.bfi-mode .app-shell {
   transition: width .2s ease;
 }
 
+
 .scale-legend {
   display: grid;
   grid-template-columns: 1fr;
@@ -334,6 +381,12 @@ body.bfi-mode .app-shell {
 
 .scale-legend strong {
   color: var(--ink);
+}
+
+.scale-legend-main {
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 18px 0 18px;
 }
 
 .question-row {
@@ -498,6 +551,11 @@ body.bfi-mode .app-shell {
 }
 
 @media (max-width: 720px) {
+
+  .cover-content h1 {
+    font-size: clamp(34px, 10vw, 52px);
+  }
+
   .app-shell {
     margin: 14px auto;
   }
@@ -525,11 +583,16 @@ body.bfi-mode .app-shell {
     bottom: 10px;
     width: auto;
     max-height: 42vh;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 10px;
   }
 
-  .bfi-sticky-panel::before { margin-bottom: 6px; }
+  .bfi-review-list {
+  max-height: calc(42vh - 105px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
   #screen-bfi.active { padding-top: 28px; padding-bottom: 190px; }
   .status-card { margin-top: 14px; }
   .grid-3,
@@ -538,7 +601,15 @@ body.bfi-mode .app-shell {
     grid-template-columns: 1fr;
     grid-column: auto;
   }
-  .scale-legend { grid-template-columns: repeat(2, 1fr); }
+  .scale-legend-main {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .scale-legend-main span {
+    padding: 7px 4px;
+  }
   .bubble { max-width: 100%; }
   .trait-heading {
     display: block;
@@ -547,4 +618,124 @@ body.bfi-mode .app-shell {
     display: block;
     margin-top: 10px;
   }
+}
+
+.review-mini {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+.review-mini summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.review-count-current {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.bfi-review-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  max-height: calc(100vh - 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.review-empty {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.bfi-answer-card {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.bfi-answer-card.compact {
+  padding: 8px;
+}
+
+.bfi-answer-card strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.bfi-answer-card p {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.bfi-answer-card span {
+  display: inline-block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.review-panel {
+  margin: 18px 0;
+  padding: 12px 14px;
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  box-shadow: 4px 4px 0 #e9dfd0;
+}
+
+.review-panel summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.review-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 14px;
+}
+
+.review-item {
+  padding: 14px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+}
+
+.review-item h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.review-block {
+  margin: 10px 0;
+}
+
+.review-block p {
+  margin: 6px 0 0;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.review-block.user-answer {
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.prompt-label {
+  font-weight: 800;
+  color: var(--ink);
 }
