@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+
+.idea/
+.vscode/
+.DS_Store
+__MACOSX/
+
+data/*.db
+data/*.db-*
+data/*.csv
+personality_dataset_*.csv
+
+*.log
+.env
+.env.*
