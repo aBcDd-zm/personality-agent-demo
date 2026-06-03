@@ -9,6 +9,9 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
+// 后续拿到真实小程序二维码时，把这里替换为二维码图片路径。
+const POSTER_QR_IMAGE_SRC = "";
+
 const REPORT_TRAITS = [
   {
     key: "bfi_E",
@@ -47,11 +50,22 @@ const REPORT_TRAITS = [
   },
 ];
 
+const POSTER_TRAITS = [
+  { key: "bfi_O", name: "开放性", english: "Openness" },
+  { key: "bfi_C", name: "尽责性", english: "Conscientiousness" },
+  { key: "bfi_E", name: "外向性", english: "Extraversion" },
+  { key: "bfi_A", name: "宜人性", english: "Agreeableness" },
+  { key: "emotional_stability", name: "情绪稳定性", english: "Emotional Stability" },
+];
+
 function countChars(text) {
   return (text || "").replace(/\s+/g, "").length;
 }
 
 function showScreen(name) {
+  if (name !== "bfi") hideError("bfiError");
+  if (name !== "task") hideError("taskError");
+
   document.querySelectorAll(".screen").forEach((el) => el.classList.remove("active"));
   $(`screen-${name}`).classList.add("active");
   const flowChrome = $("flowChrome");
@@ -92,14 +106,21 @@ function updateTaskProgressBar() {
 
 function showError(id, message) {
   const el = $(id);
+  if (!el) return;
   el.textContent = message;
   el.classList.remove("hidden");
 }
 
 function hideError(id) {
   const el = $(id);
+  if (!el) return;
   el.textContent = "";
   el.classList.add("hidden");
+}
+
+function clearValidationErrors() {
+  hideError("bfiError");
+  hideError("taskError");
 }
 
 async function api(path, options = {}) {
@@ -374,6 +395,9 @@ function buildEducationProfile() {
 }
 
 async function startSession() {
+  clearValidationErrors();
+  hidePoster();
+
   const data = await api("/api/session/start", {
     method: "POST",
     body: JSON.stringify({
@@ -427,6 +451,7 @@ for (const q of questions) {
     state.currentTaskIndex = 0;
     state.taskAnswers = [];
 
+    clearValidationErrors();
     renderTask();
     showScreen("task");
   } catch (err) {
@@ -514,6 +539,7 @@ async function submitTask() {
     submitted = true;
     state.currentTaskIndex += 1;
     if (state.currentTaskIndex >= state.config.scenario_tasks.length) {
+      clearValidationErrors();
       renderFinish();
       showScreen("finish");
     } else {
@@ -537,7 +563,183 @@ function toPercentScore(score5) {
   return Math.max(0, Math.min(100, Math.round(((numeric - 1) / 4) * 100)));
 }
 
+function getPosterScores() {
+  const scores = state.bfiScores || {};
+  const neuroticismPercent = toPercentScore(scores.bfi_N);
+
+  return POSTER_TRAITS.map((trait) => {
+    const percent = trait.key === "emotional_stability"
+      ? (neuroticismPercent === null ? null : 100 - neuroticismPercent)
+      : toPercentScore(scores[trait.key]);
+
+    return {
+      ...trait,
+      percent,
+      displayScore: percent === null ? "-" : `${percent}`,
+    };
+  });
+}
+
+function hidePoster() {
+  const posterSection = $("posterSection");
+  if (posterSection) {
+    posterSection.innerHTML = "";
+    posterSection.classList.add("hidden");
+  }
+
+  const posterButton = $("generatePosterBtn");
+  if (posterButton) {
+    posterButton.innerText = "生成人格海报";
+    posterButton.disabled = false;
+  }
+}
+
+function renderPoster() {
+  const posterSection = $("posterSection");
+  if (!posterSection) return;
+
+  const posterScores = getPosterScores();
+  const qrMarkup = POSTER_QR_IMAGE_SRC
+    ? `<img class="poster-qr-img" src="${escapeHtml(POSTER_QR_IMAGE_SRC)}" alt="扫码参与测评二维码">`
+    : `<div class="poster-qr-placeholder" aria-hidden="true"></div>`;
+
+  posterSection.innerHTML = `
+    <article class="poster-card" id="personalityPoster">
+      <div class="poster-hero">
+        <p class="poster-eyebrow">Workplace Persona</p>
+        <h3>我的职场人格画像</h3>
+        <p>看看你的职场优势画像，也邀请朋友一起测一测。</p>
+      </div>
+
+      <div class="poster-radar-wrap">
+        <canvas id="posterRadar" aria-label="五项人格雷达图"></canvas>
+      </div>
+
+      <div class="poster-score-grid">
+        ${posterScores.map((item) => `
+          <div class="poster-score-item">
+            <span>${item.name}</span>
+            <strong>${item.displayScore}</strong>
+            <small>${item.english}</small>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="poster-bottom">
+        <div class="poster-qr-box">
+          ${qrMarkup}
+        </div>
+        <div>
+          <strong>扫码参与测评</strong>
+          <p>生成属于你的职场人格画像</p>
+        </div>
+      </div>
+    </article>
+  `;
+
+  posterSection.classList.remove("hidden");
+
+  requestAnimationFrame(() => {
+    drawPosterRadar(posterScores);
+    posterSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function drawPosterRadar(items) {
+  const canvas = $("posterRadar");
+  if (!canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(rect.width, 280);
+  const height = Math.max(rect.height, 280);
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const centerX = width / 2;
+  const centerY = height / 2 + 8;
+  const radius = Math.min(width, height) * 0.28;
+  const labelRadius = Math.min(width, height) * 0.43;
+  const startAngle = -Math.PI / 2;
+
+  function getPoint(index, valueRadius) {
+    const angle = startAngle + (Math.PI * 2 * index) / items.length;
+    return {
+      x: centerX + Math.cos(angle) * valueRadius,
+      y: centerY + Math.sin(angle) * valueRadius,
+    };
+  }
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+
+  for (let level = 5; level >= 1; level -= 1) {
+    const levelRadius = (radius * level) / 5;
+    ctx.beginPath();
+    items.forEach((_, index) => {
+      const point = getPoint(index, levelRadius);
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  items.forEach((_, index) => {
+    const point = getPoint(index, radius);
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+  });
+
+  const dataPoints = items.map((item, index) => {
+    const value = item.percent === null ? 0 : item.percent;
+    return getPoint(index, radius * (value / 100));
+  });
+
+  ctx.beginPath();
+  dataPoints.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2.5;
+  ctx.fill();
+  ctx.stroke();
+
+  dataPoints.forEach((point) => {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+  });
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  items.forEach((item, index) => {
+    const labelPoint = getPoint(index, labelRadius);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "700 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.fillText(item.name, labelPoint.x, labelPoint.y - 8);
+    ctx.font = "600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.fillText(`${item.displayScore}分`, labelPoint.x, labelPoint.y + 12);
+  });
+}
+
 function renderFinish() {
+  clearValidationErrors();
+  hidePoster();
   renderBfiReviewPanel("bfiFinishReview");
   renderTaskAnswerReview("taskFinishReview");
 
@@ -568,6 +770,8 @@ function renderFinish() {
 
 function restart() {
   localStorage.removeItem("participant_id");
+  clearValidationErrors();
+  hidePoster();
 
   state.participantId = "";
   state.bfiAnswers = {};
@@ -592,6 +796,7 @@ $("coverStartBtn").addEventListener("click", () => showScreen("info"));
 $("startBtn").addEventListener("click", startSession);
 $("submitBfiBtn").addEventListener("click", submitBfi);
 $("submitTaskBtn").addEventListener("click", submitTask);
+$("generatePosterBtn").addEventListener("click", renderPoster);
 $("restartBtn").addEventListener("click", restart);
 $("answer1").addEventListener("input", updateCounts);
 $("answer2").addEventListener("input", updateCounts);
