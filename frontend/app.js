@@ -470,15 +470,32 @@ async function buildPosterExportCanvas() {
   drawRoundRect(ctx, qrBoxX, qrBoxY, 220, 220, 30, "#ffffff", "rgba(216,222,233,0.96)", 2);
   ctx.drawImage(qrCanvas, qrBoxX + 10, qrBoxY + 10, 200, 200);
 
+  const inviteCopyX = 400;
+  const inviteCopyMaxWidth = POSTER_EXPORT_WIDTH - inviteCopyX - 132;
   ctx.textAlign = "left";
   ctx.fillStyle = "#172033";
-  ctx.font = "900 42px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
-  ctx.fillText("长按保存，转发给朋友", 400, bottomY + 82);
-  ctx.fillText("邀请他们生成自己的专属职场人格画像", 400, bottomY + 138);
+  ctx.font = "900 36px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  const inviteTitleEndY = drawLeftWrappedText(
+    ctx,
+    "长按保存，转发给朋友，邀请他们生成自己的专属职场人格画像",
+    inviteCopyX,
+    bottomY + 72,
+    inviteCopyMaxWidth,
+    48,
+    2,
+  );
 
   ctx.fillStyle = "#667085";
-  ctx.font = "700 24px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
-  drawLeftWrappedText(ctx, "扫码进入测评首页，从头生成自己的结果", 400, bottomY + 190, 540, 34, 2);
+  ctx.font = "700 23px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  drawLeftWrappedText(
+    ctx,
+    "扫码进入测评首页，从头生成自己的结果",
+    inviteCopyX,
+    inviteTitleEndY + 18,
+    inviteCopyMaxWidth,
+    32,
+    2,
+  );
 
   canvas.dataset.inviteUrl = inviteUrl;
   return canvas;
