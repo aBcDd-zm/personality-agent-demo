@@ -67,7 +67,7 @@ const SCORE_KEY_TO_PERSONA = {
 };
 
 const POSTER_EXPORT_WIDTH = 1080;
-const POSTER_EXPORT_HEIGHT = 1600;
+const POSTER_EXPORT_HEIGHT = 1880;
 const MOBILE_POSTER_QUERY = "(max-width: 720px)";
 
 function isMobilePosterViewport() {
@@ -325,6 +325,99 @@ function drawLeftWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3
   return y + lines.length * lineHeight;
 }
 
+function drawRadarChart(ctx, items, bounds, options = {}) {
+  const {
+    gridStroke = "rgba(255, 255, 255, 0.38)",
+    gridFill = "rgba(255, 255, 255, 0.05)",
+    shapeFill = "rgba(255, 255, 255, 0.28)",
+    shapeStroke = "#ffffff",
+    pointFill = "#ffffff",
+    labelFill = "#ffffff",
+    scoreFill = "#ffffff",
+    labelFont = "700 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    scoreFont = "600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  } = options;
+
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2 + (bounds.centerOffsetY || 0);
+  const radius = Math.min(bounds.width, bounds.height) * (bounds.radiusRatio || 0.34);
+  const labelRadius = Math.min(bounds.width, bounds.height) * (bounds.labelRadiusRatio || 0.43);
+  const startAngle = -Math.PI / 2;
+
+  function getPoint(index, valueRadius) {
+    const angle = startAngle + (Math.PI * 2 * index) / items.length;
+    return {
+      x: centerX + Math.cos(angle) * valueRadius,
+      y: centerY + Math.sin(angle) * valueRadius,
+    };
+  }
+
+  ctx.save();
+  ctx.lineWidth = bounds.gridLineWidth || 1;
+  ctx.strokeStyle = gridStroke;
+  ctx.fillStyle = gridFill;
+
+  for (let level = 5; level >= 1; level -= 1) {
+    const levelRadius = (radius * level) / 5;
+    ctx.beginPath();
+    items.forEach((_, index) => {
+      const point = getPoint(index, levelRadius);
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  items.forEach((_, index) => {
+    const point = getPoint(index, radius);
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+  });
+
+  const dataPoints = items.map((item, index) => {
+    const value = item.percent === null ? 0 : item.percent;
+    return getPoint(index, radius * (value / 100));
+  });
+
+  ctx.beginPath();
+  dataPoints.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = shapeFill;
+  ctx.strokeStyle = shapeStroke;
+  ctx.lineWidth = bounds.shapeLineWidth || 2.5;
+  ctx.fill();
+  ctx.stroke();
+
+  dataPoints.forEach((point) => {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, bounds.pointRadius || 4, 0, Math.PI * 2);
+    ctx.fillStyle = pointFill;
+    ctx.fill();
+  });
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  items.forEach((item, index) => {
+    const labelPoint = getPoint(index, labelRadius);
+    ctx.fillStyle = labelFill;
+    ctx.font = labelFont;
+    ctx.fillText(item.name, labelPoint.x, labelPoint.y - (bounds.labelGap || 8));
+    ctx.fillStyle = scoreFill;
+    ctx.font = scoreFont;
+    ctx.fillText(`${item.displayScore}分`, labelPoint.x, labelPoint.y + (bounds.scoreGap || 12));
+  });
+
+  ctx.restore();
+}
+
 async function createQrCanvas(text, size) {
   if (typeof QRCode === "undefined") {
     throw new Error("二维码生成组件未加载，请刷新页面后重试");
@@ -385,6 +478,7 @@ function canvasToBlob(canvas) {
 
 async function buildPosterExportCanvas() {
   const persona = getCurrentPersona();
+  const posterScores = getPosterScores();
   const inviteUrl = getInviteUrl();
   const canvas = document.createElement("canvas");
   canvas.width = POSTER_EXPORT_WIDTH;
@@ -447,7 +541,7 @@ async function buildPosterExportCanvas() {
   ctx.font = "600 34px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
   drawCenteredWrappedText(ctx, persona.slogan, POSTER_EXPORT_WIDTH / 2, 970, 820, 52, 3);
 
-  const tagY = 1124;
+  const tagY = 1114;
   const tagGap = 18;
   ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
   const tagWidths = persona.tags.map((tag) => Math.ceil(ctx.measureText(tag).width) + 54);
@@ -462,7 +556,34 @@ async function buildPosterExportCanvas() {
     tagX += width + tagGap;
   });
 
-  const bottomY = 1248;
+  const radarPanel = { x: 168, y: 1200, width: 744, height: 260 };
+  drawRoundRect(ctx, radarPanel.x, radarPanel.y, radarPanel.width, radarPanel.height, 30, "rgba(255,255,255,0.13)", "rgba(255,255,255,0.24)", 1.5);
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.font = "900 30px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.fillText("大五人格雷达图", radarPanel.x + 38, radarPanel.y + 52);
+  ctx.fillStyle = "rgba(255,255,255,0.58)";
+  ctx.font = "800 20px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.fillText("Big Five Profile", radarPanel.x + 38, radarPanel.y + 86);
+
+  drawRadarChart(ctx, posterScores, {
+    x: radarPanel.x + 260,
+    y: radarPanel.y + 18,
+    width: 430,
+    height: 226,
+    centerOffsetY: 8,
+    radiusRatio: 0.34,
+    labelRadiusRatio: 0.46,
+    pointRadius: 4,
+    labelGap: 10,
+    scoreGap: 13,
+  }, {
+    labelFont: "800 20px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+    scoreFont: "700 17px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+  });
+
+  const bottomY = 1538;
   drawRoundRect(ctx, 78, bottomY, POSTER_EXPORT_WIDTH - 156, 260, 34, "rgba(255,255,255,0.96)", "rgba(216,222,233,0.92)", 2);
 
   const qrBoxX = 132;
@@ -1266,79 +1387,14 @@ function drawPosterRadar(items) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const centerX = width / 2;
-  const centerY = height / 2 + 18;
-  const radius = Math.min(width, height) * 0.36;
-  const labelRadius = Math.min(width, height) * 0.43;
-  const startAngle = -Math.PI / 2;
-
-  function getPoint(index, valueRadius) {
-    const angle = startAngle + (Math.PI * 2 * index) / items.length;
-    return {
-      x: centerX + Math.cos(angle) * valueRadius,
-      y: centerY + Math.sin(angle) * valueRadius,
-    };
-  }
-
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.38)";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-
-  for (let level = 5; level >= 1; level -= 1) {
-    const levelRadius = (radius * level) / 5;
-    ctx.beginPath();
-    items.forEach((_, index) => {
-      const point = getPoint(index, levelRadius);
-      if (index === 0) ctx.moveTo(point.x, point.y);
-      else ctx.lineTo(point.x, point.y);
-    });
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  items.forEach((_, index) => {
-    const point = getPoint(index, radius);
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(point.x, point.y);
-    ctx.stroke();
-  });
-
-  const dataPoints = items.map((item, index) => {
-    const value = item.percent === null ? 0 : item.percent;
-    return getPoint(index, radius * (value / 100));
-  });
-
-  ctx.beginPath();
-  dataPoints.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  });
-  ctx.closePath();
-  ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2.5;
-  ctx.fill();
-  ctx.stroke();
-
-  dataPoints.forEach((point) => {
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-  });
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  items.forEach((item, index) => {
-    const labelPoint = getPoint(index, labelRadius);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "700 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    ctx.fillText(item.name, labelPoint.x, labelPoint.y - 8);
-    ctx.font = "600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    ctx.fillText(`${item.displayScore}分`, labelPoint.x, labelPoint.y + 12);
+  drawRadarChart(ctx, items, {
+    x: 0,
+    y: 0,
+    width,
+    height,
+    centerOffsetY: 18,
+    radiusRatio: 0.36,
+    labelRadiusRatio: 0.43,
   });
 }
 
