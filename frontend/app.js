@@ -67,7 +67,7 @@ const SCORE_KEY_TO_PERSONA = {
 };
 
 const POSTER_EXPORT_WIDTH = 1080;
-const POSTER_EXPORT_HEIGHT = 1880;
+const POSTER_EXPORT_HEIGHT = 2140;
 const MOBILE_POSTER_QUERY = "(max-width: 720px)";
 
 function isMobilePosterViewport() {
@@ -541,7 +541,7 @@ async function buildPosterExportCanvas() {
   ctx.font = "600 34px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
   drawCenteredWrappedText(ctx, persona.slogan, POSTER_EXPORT_WIDTH / 2, 970, 820, 52, 3);
 
-  const tagY = 1114;
+  const tagY = 1010;
   const tagGap = 18;
   ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
   const tagWidths = persona.tags.map((tag) => Math.ceil(ctx.measureText(tag).width) + 54);
@@ -556,34 +556,51 @@ async function buildPosterExportCanvas() {
     tagX += width + tagGap;
   });
 
-  const radarPanel = { x: 168, y: 1200, width: 744, height: 260 };
-  drawRoundRect(ctx, radarPanel.x, radarPanel.y, radarPanel.width, radarPanel.height, 30, "rgba(255,255,255,0.13)", "rgba(255,255,255,0.24)", 1.5);
+  const radarPanel = { x: 132, y: 1110, width: POSTER_EXPORT_WIDTH - 264, height: 620 };
 
-  ctx.textAlign = "left";
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.font = "900 30px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
-  ctx.fillText("大五人格雷达图", radarPanel.x + 38, radarPanel.y + 52);
-  ctx.fillStyle = "rgba(255,255,255,0.58)";
-  ctx.font = "800 20px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
-  ctx.fillText("Big Five Profile", radarPanel.x + 38, radarPanel.y + 86);
+drawRoundRect(
+  ctx,
+  radarPanel.x,
+  radarPanel.y,
+  radarPanel.width,
+  radarPanel.height,
+  34,
+  "rgba(255,255,255,0.13)",
+  "rgba(255,255,255,0.24)",
+  1.5
+);
 
-  drawRadarChart(ctx, posterScores, {
-    x: radarPanel.x + 260,
-    y: radarPanel.y + 18,
-    width: 430,
-    height: 226,
-    centerOffsetY: 8,
-    radiusRatio: 0.34,
-    labelRadiusRatio: 0.46,
-    pointRadius: 4,
-    labelGap: 10,
-    scoreGap: 13,
-  }, {
-    labelFont: "800 20px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
-    scoreFont: "700 17px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
-  });
+// 标题：左中文，右英文
+ctx.textAlign = "left";
+ctx.fillStyle = "rgba(255,255,255,0.92)";
+ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+ctx.fillText("大五人格雷达图", radarPanel.x + 38, radarPanel.y + 58);
 
-  const bottomY = 1538;
+ctx.textAlign = "right";
+ctx.fillStyle = "rgba(255,255,255,0.62)";
+ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+ctx.fillText("Big Five Profile", radarPanel.x + radarPanel.width - 38, radarPanel.y + 58);
+
+// 雷达图：居中放大
+drawRadarChart(ctx, posterScores, {
+  x: radarPanel.x + 38,
+  y: radarPanel.y + 82,
+  width: radarPanel.width - 76,
+  height: radarPanel.height - 112,
+  centerOffsetY: 18,
+  radiusRatio: 0.40,
+  labelRadiusRatio: 0.50,
+  pointRadius: 5,
+  labelGap: 13,
+  scoreGap: 18,
+  gridLineWidth: 1.3,
+  shapeLineWidth: 4,
+}, {
+  labelFont: "900 24px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+  scoreFont: "800 20px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+});
+
+  const bottomY = 1790;
   drawRoundRect(ctx, 78, bottomY, POSTER_EXPORT_WIDTH - 156, 260, 34, "rgba(255,255,255,0.96)", "rgba(216,222,233,0.92)", 2);
 
   const qrBoxX = 132;
@@ -1560,25 +1577,39 @@ $("answer2").addEventListener("input", updateCounts);
 // /?dev=poster
 
 const DEV_POSTER_PAIR_OPTIONS = [
-  { key: "bfi_O+bfi_C", label: "开放 × 尽责" },
-  { key: "bfi_O+bfi_E", label: "开放 × 外向" },
-  { key: "bfi_O+bfi_A", label: "开放 × 宜人" },
-  { key: "bfi_O+bfi_N", label: "开放 × 神经质" },
-  { key: "bfi_C+bfi_E", label: "尽责 × 外向" },
-  { key: "bfi_C+bfi_A", label: "尽责 × 宜人" },
-  { key: "bfi_C+bfi_N", label: "尽责 × 神经质" },
-  { key: "bfi_E+bfi_A", label: "外向 × 宜人" },
-  { key: "bfi_E+bfi_N", label: "外向 × 神经质" },
-  { key: "bfi_A+bfi_N", label: "宜人 × 神经质" },
+  // 8 种正式海报
+  { key: "MOOD", label: "MOOD｜读空气" },
+  { key: "DONE", label: "DONE｜进度条" },
+  { key: "IDEA", label: "IDEA｜点子王" },
+  { key: "MIC", label: "MIC｜会议嘴替" },
+  { key: "GLUE", label: "GLUE｜调停员" },
+  { key: "RISK", label: "RISK｜预言家" },
+  { key: "DIVE", label: "DIVE｜潜水员" },
+  { key: "CTRL", label: "CTRL｜颗粒度" },
 
-  { key: "tie_top2", label: "最高两项并列" },
-  { key: "tie_top3", label: "最高三项并列" },
-  { key: "tie_top4", label: "最高四项并列" },
-  { key: "tie_all5", label: "五项全并列" },
+  // 特殊优先级
+  { key: "special_all_high", label: "全高→CTRL" },
+  { key: "special_ctrl_over_risk", label: "CTRL>RISK" },
+  { key: "special_ctrl_over_mic_done", label: "CTRL>MIC/DONE" },
+  { key: "special_risk_over_done", label: "RISK>DONE" },
+  { key: "special_dive_over_done", label: "DIVE>DONE" },
+  { key: "special_glue_over_mic", label: "GLUE>MIC" },
+  { key: "special_mic_over_idea", label: "MIC>IDEA" },
+  { key: "special_idea_over_done", label: "IDEA>DONE" },
 
-  { key: "tie_second2", label: "第二高两项并列" },
-  { key: "tie_second3", label: "第二高三项并列" },
-  { key: "tie_second4", label: "第二高四项并列" },
+  // fallback
+  { key: "fallback_O", label: "开放最高" },
+  { key: "fallback_C", label: "尽责最高" },
+  { key: "fallback_E", label: "外向最高" },
+  { key: "fallback_A", label: "宜人最高" },
+  { key: "fallback_N", label: "神经质最高" },
+
+  // 并列
+  { key: "tie_all_low", label: "五项低分并列" },
+  { key: "tie_OC_low", label: "开放=尽责" },
+  { key: "tie_EA_low", label: "外向=宜人" },
+  { key: "tie_AN_low", label: "宜人=神经质" },
+  { key: "tie_EA_high", label: "高外向=高宜人" },
 ];
 
 function percentToScore5(percent) {
@@ -1589,91 +1620,244 @@ function setDevTraitPercent(scores, key, percent) {
   scores[key] = percentToScore5(percent);
 }
 
-function makeDevBfiScores(devPairKey = "bfi_E+bfi_A") {
-  const scores = {
-    bfi_O: percentToScore5(44),
-    bfi_C: percentToScore5(42),
-    bfi_E: percentToScore5(40),
-    bfi_A: percentToScore5(38),
-    bfi_N: percentToScore5(54),
+function makeDevBfiScores(devCaseKey = "GLUE") {
+  const presets = {
+    // ===== 8 种正式人格海报 =====
+
+    MOOD: {
+      bfi_O: 38,
+      bfi_C: 42,
+      bfi_E: 40,
+      bfi_A: 64,
+      bfi_N: 44,
+    },
+
+    DONE: {
+      bfi_O: 42,
+      bfi_C: 70,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    IDEA: {
+      bfi_O: 72,
+      bfi_C: 42,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    MIC: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 72,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    GLUE: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 50,
+      bfi_A: 72,
+      bfi_N: 44,
+    },
+
+    RISK: {
+      bfi_O: 42,
+      bfi_C: 50,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 72,
+    },
+
+    DIVE: {
+      bfi_O: 42,
+      bfi_C: 60,
+      bfi_E: 30,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    CTRL: {
+      bfi_O: 42,
+      bfi_C: 76,
+      bfi_E: 60,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // ===== 特殊情况：判断优先级 =====
+
+    // 五项都高时，因为 CTRL 判断排第一，所以结果是 CTRL
+    special_all_high: {
+      bfi_O: 82,
+      bfi_C: 82,
+      bfi_E: 82,
+      bfi_A: 82,
+      bfi_N: 82,
+    },
+
+    // 同时满足 CTRL 和 RISK 时，CTRL 更优先
+    special_ctrl_over_risk: {
+      bfi_O: 42,
+      bfi_C: 80,
+      bfi_E: 60,
+      bfi_A: 38,
+      bfi_N: 80,
+    },
+
+    // 同时满足 CTRL / MIC / DONE 时，CTRL 更优先
+    special_ctrl_over_mic_done: {
+      bfi_O: 40,
+      bfi_C: 80,
+      bfi_E: 75,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // 同时满足 RISK 和 DONE 时，RISK 更优先
+    special_risk_over_done: {
+      bfi_O: 40,
+      bfi_C: 70,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 75,
+    },
+
+    // 同时满足 DIVE 和 DONE 时，DIVE 更优先
+    special_dive_over_done: {
+      bfi_O: 40,
+      bfi_C: 70,
+      bfi_E: 30,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // 同时满足 GLUE 和 MIC 时，GLUE 更优先
+    special_glue_over_mic: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 80,
+      bfi_A: 80,
+      bfi_N: 44,
+    },
+
+    // 同时满足 MIC 和 IDEA 时，MIC 更优先
+    special_mic_over_idea: {
+      bfi_O: 80,
+      bfi_C: 42,
+      bfi_E: 72,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // 同时满足 IDEA 和 DONE 时，IDEA 更优先
+    special_idea_over_done: {
+      bfi_O: 80,
+      bfi_C: 70,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // ===== fallback：没有命中任何阈值，只看最高项 =====
+
+    fallback_O: {
+      bfi_O: 60,
+      bfi_C: 56,
+      bfi_E: 52,
+      bfi_A: 50,
+      bfi_N: 48,
+    },
+
+    fallback_C: {
+      bfi_O: 56,
+      bfi_C: 60,
+      bfi_E: 40,
+      bfi_A: 50,
+      bfi_N: 48,
+    },
+
+    fallback_E: {
+      bfi_O: 56,
+      bfi_C: 54,
+      bfi_E: 60,
+      bfi_A: 50,
+      bfi_N: 48,
+    },
+
+    fallback_A: {
+      bfi_O: 56,
+      bfi_C: 54,
+      bfi_E: 40,
+      bfi_A: 60,
+      bfi_N: 48,
+    },
+
+    fallback_N: {
+      bfi_O: 56,
+      bfi_C: 54,
+      bfi_E: 40,
+      bfi_A: 50,
+      bfi_N: 60,
+    },
+
+    // ===== 并列情况 =====
+
+    // 五项都 60，没有达到任何阈值，fallback 顺序是 O → C → E → A → N，所以结果是 IDEA
+    tie_all_low: {
+      bfi_O: 60,
+      bfi_C: 60,
+      bfi_E: 60,
+      bfi_A: 60,
+      bfi_N: 60,
+    },
+
+    // 开放和尽责并列，没有达到阈值，O 排在 C 前，所以结果是 IDEA
+    tie_OC_low: {
+      bfi_O: 60,
+      bfi_C: 60,
+      bfi_E: 50,
+      bfi_A: 48,
+      bfi_N: 46,
+    },
+
+    // 外向和宜人并列低分，没有达到阈值，E 排在 A 前，所以结果是 MIC
+    tie_EA_low: {
+      bfi_O: 50,
+      bfi_C: 48,
+      bfi_E: 60,
+      bfi_A: 60,
+      bfi_N: 46,
+    },
+
+    // 宜人和神经质并列低分，没有达到阈值，A 排在 N 前，所以结果是 MOOD
+    tie_AN_low: {
+      bfi_O: 50,
+      bfi_C: 48,
+      bfi_E: 46,
+      bfi_A: 60,
+      bfi_N: 60,
+    },
+
+    // 外向和宜人都高时，会先命中 GLUE，而不是 MIC
+    tie_EA_high: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 82,
+      bfi_A: 82,
+      bfi_N: 44,
+    },
   };
 
-  // 最高两项并列
-  if (devPairKey === "tie_top2") {
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_O", 60);
-    setDevTraitPercent(scores, "bfi_C", 45);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
+  const selected = presets[devCaseKey] || presets.GLUE;
+  const scores = {};
 
-  // 最高三项并列
-  if (devPairKey === "tie_top3") {
-   setDevTraitPercent(scores, "bfi_O", 82);
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_C", 45);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 最高四项并列
-  if (devPairKey === "tie_top4") {
-    setDevTraitPercent(scores, "bfi_O", 82);
-    setDevTraitPercent(scores, "bfi_C", 82);
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 五项全并列
-  if (devPairKey === "tie_all5") {
-    setDevTraitPercent(scores, "bfi_O", 82);
-    setDevTraitPercent(scores, "bfi_C", 82);
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_N", 82);
-    return scores;
-  }
-
-  // 第一高唯一，第二高两项并列
-  if (devPairKey === "tie_second2") {
-    setDevTraitPercent(scores, "bfi_E", 86);
-    setDevTraitPercent(scores, "bfi_O", 76);
-    setDevTraitPercent(scores, "bfi_C", 76);
-    setDevTraitPercent(scores, "bfi_A", 44);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 第一高唯一，第二高三项并列
-  if (devPairKey === "tie_second3") {
-    setDevTraitPercent(scores, "bfi_E", 86);
-    setDevTraitPercent(scores, "bfi_O", 76);
-    setDevTraitPercent(scores, "bfi_C", 76);
-    setDevTraitPercent(scores, "bfi_A", 76);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 第一高唯一，第二高四项并列
-  if (devPairKey === "tie_second4") {
-    setDevTraitPercent(scores, "bfi_E", 86);
-    setDevTraitPercent(scores, "bfi_O", 76);
-    setDevTraitPercent(scores, "bfi_C", 76);
-    setDevTraitPercent(scores, "bfi_A", 76);
-    setDevTraitPercent(scores, "bfi_N", 76);
-    return scores;
-  }
-
-  const pairKeys = devPairKey.split("+");
-
-  if (pairKeys.length === 2) {
-    setDevTraitPercent(scores, pairKeys[0], 82);
-    setDevTraitPercent(scores, pairKeys[1], 78);
-  }
+  Object.entries(selected).forEach(([key, percent]) => {
+    setDevTraitPercent(scores, key, percent);
+  });
 
   return scores;
 }
@@ -1753,7 +1937,7 @@ function setupDevPreview() {
   if (!allowedPages.includes(page)) return;
 
   const round = Number(params.get("round") || 1);
-  const pair = (params.get("pair") || "bfi_E+bfi_A").replaceAll(" ", "+");
+  const pair = (params.get("case") || params.get("pair") || "GLUE").replaceAll(" ", "+");
 
   applyDevState({
     round,
@@ -1780,7 +1964,7 @@ function setupDevPreview() {
   injectDevToolbar(page, round, pair);
 }
 
-function injectDevToolbar(activePage, activeRound = 1, activePair = "bfi_E+bfi_A") {
+function injectDevToolbar(activePage, activeRound = 1, activePair = "GLUE") {
   const old = document.getElementById("devToolbar");
   if (old) old.remove();
 
@@ -1825,9 +2009,9 @@ function injectDevToolbar(activePage, activeRound = 1, activePair = "bfi_E+bfi_A
       </div>
 
       <div class="dev-toolbar-pairs">
-        <span>海报组合</span>
+        <span>海报情况</span>
         ${DEV_POSTER_PAIR_OPTIONS.map((item) => `
-          <a class="${activePage === "poster" && activePair === item.key ? "active" : ""}" href="${basePath}?dev=poster&pair=${encodeURIComponent(item.key)}">
+          <a class="${activePage === "poster" && activePair === item.key ? "active" : ""}" href="${basePath}?dev=poster&case=${encodeURIComponent(item.key)}">
             ${item.label}
           </a>
         `).join("")}

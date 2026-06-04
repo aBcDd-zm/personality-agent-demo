@@ -919,7 +919,7 @@ body.bfi-mode .app-shell {
   right: 18px;
   bottom: 18px;
   z-index: 9999;
-  width: 260px;
+  width: 300px;
   padding: 12px;
   background: rgba(23, 32, 51, 0.92);
   color: #fff;
@@ -1399,18 +1399,32 @@ body.bfi-mode .app-shell {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.16);
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 
 .dev-toolbar-pairs span {
-  width: 100%;
+  grid-column: 1 / -1;
   display: block;
   margin-bottom: 2px;
   color: rgba(255, 255, 255, 0.68);
   font-size: 12px;
   font-weight: 700;
+}
+
+.dev-toolbar-pairs a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 6px 7px;
+  text-align: center;
+  white-space: normal;
+  word-break: keep-all;
+  line-height: 1.2;
+  font-size: 11px;
+  border-radius: 999px;
 }
 
 /* ===== 结果页人格标题：中文 + 英文同一行 ===== */
@@ -2702,5 +2716,22 @@ body.cover-mode .app-shell {
   .poster-bottom-copy p {
     font-size: 11px;
     line-height: 1.5;
+  }
+}
+
+/* ===== 手机端：缩小顶部说明文字和当前阶段卡片之间的空隙 ===== */
+
+@media (max-width: 720px) {
+  #flowChrome .hero {
+    gap: 4px;
+  }
+
+  #flowChrome .subtitle {
+    margin-top: 8px;
+    margin-bottom: 2px;
+  }
+
+  #flowChrome .status-card {
+    margin-top: 0;
   }
 }
