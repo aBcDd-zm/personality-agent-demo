@@ -1310,15 +1310,19 @@ body.bfi-mode .app-shell {
 
 .result-poster-img {
   display: block;
-  width: min(420px, 100%);
+  width: min(720px, 100%);
   height: auto;
-  margin: 14px auto 0;
-  border-radius: 18px;
+  margin: 0 auto;
+  border-radius: 26px;
   border: 1px solid rgba(216, 222, 233, 0.92);
   background: #ffffff;
-  box-shadow: 0 18px 42px rgba(23, 32, 51, 0.16);
+  box-shadow: 0 22px 55px rgba(23, 32, 51, 0.18);
   -webkit-touch-callout: default;
   user-select: auto;
+}
+
+.poster-main-export-img {
+  cursor: default;
 }
 
 .poster-download-link {
@@ -2581,21 +2585,12 @@ body.cover-mode .app-shell {
   }
 
   .poster-export-panel {
-    padding: 14px 12px;
-    border-radius: 12px;
-  }
-
-  .poster-save-btn {
-    width: 100%;
-  }
-
-  .poster-export-hint {
-    font-size: 12px;
+    display: none;
   }
 
   .result-poster-img {
     width: 100%;
-    border-radius: 14px;
+    border-radius: 22px;
   }
 }
 

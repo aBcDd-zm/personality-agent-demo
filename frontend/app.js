@@ -68,6 +68,11 @@ const SCORE_KEY_TO_PERSONA = {
 
 const POSTER_EXPORT_WIDTH = 1080;
 const POSTER_EXPORT_HEIGHT = 1600;
+const MOBILE_POSTER_QUERY = "(max-width: 720px)";
+
+function isMobilePosterViewport() {
+  return window.matchMedia?.(MOBILE_POSTER_QUERY).matches || window.innerWidth <= 720;
+}
 
 function countChars(text) {
   return (text || "").replace(/\s+/g, "").length;
@@ -484,6 +489,7 @@ async function exportPosterImage() {
   const status = $("posterExportStatus");
   const img = $("resultPosterImg");
   const downloadLink = $("posterDownloadLink");
+  const poster = $("personalityPoster");
 
   try {
     if (button) {
@@ -506,6 +512,10 @@ async function exportPosterImage() {
       img.classList.remove("hidden");
     }
 
+    if (poster) {
+      poster.classList.add("hidden");
+    }
+
     if (downloadLink) {
       downloadLink.href = dataUrl;
       downloadLink.download = `workplace-persona-${state.participantId || "poster"}.png`;
@@ -513,7 +523,7 @@ async function exportPosterImage() {
     }
 
     if (status) {
-      status.textContent = "海报已生成。手机端请长按下方完整海报图片保存；电脑端可点击下载。";
+      status.textContent = "海报已生成。手机端请长按上方完整海报图片保存；电脑端可点击下载。";
     }
   } catch (err) {
     if (status) {
@@ -1197,13 +1207,13 @@ function renderPoster({ scroll = true } = {}) {
         </strong>
       </div>
     </article>
+    <img class="result-poster-img poster-main-export-img hidden" id="resultPosterImg" alt="完整结果海报">
 
     <div class="poster-export-panel">
       <button class="primary poster-save-btn" id="savePosterBtn">保存结果海报</button>
       <p class="poster-export-hint" id="posterExportStatus">
-        点击后会生成一张完整海报图片。手机端长按图片保存，电脑端可下载。
+        点击后会把上方海报转换成完整 PNG。手机端长按上方图片保存，电脑端可下载。
       </p>
-      <img class="result-poster-img hidden" id="resultPosterImg" alt="完整结果海报">
       <a class="secondary link-btn poster-download-link hidden" id="posterDownloadLink" href="#" download="workplace-persona-poster.png">下载海报 PNG</a>
     </div>
   `;
@@ -1214,6 +1224,9 @@ function renderPoster({ scroll = true } = {}) {
     drawPosterRadar(posterScores);
     renderInviteQrCode();
     $("savePosterBtn")?.addEventListener("click", exportPosterImage);
+    if (isMobilePosterViewport()) {
+      requestAnimationFrame(() => exportPosterImage());
+    }
     if (scroll) {
       posterSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
