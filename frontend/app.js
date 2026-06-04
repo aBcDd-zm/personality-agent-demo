@@ -10,8 +10,7 @@ const state = {
 
 const $ = (id) => document.getElementById(id);
 
-// 后续拿到真实小程序二维码时，把这里替换为二维码图片路径。
-const POSTER_QR_IMAGE_SRC = "";
+const REFERRAL_STORAGE_KEY = "referrer_participant_id";
 
 const REPORT_TRAITS = [
   {
@@ -197,6 +196,46 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function captureReferralParam() {
+  const params = new URLSearchParams(window.location.search);
+  const ref = params.get("ref");
+  if (ref) {
+    sessionStorage.setItem(REFERRAL_STORAGE_KEY, ref);
+    localStorage.setItem(REFERRAL_STORAGE_KEY, ref);
+  }
+}
+
+function getInviteUrl() {
+  const inviteUrl = new URL("/", window.location.origin);
+  if (state.participantId) {
+    inviteUrl.searchParams.set("ref", state.participantId);
+  }
+  return inviteUrl.href;
+}
+
+function renderInviteQrCode() {
+  const qrEl = $("posterQrCode");
+  if (!qrEl) return;
+
+  const inviteUrl = getInviteUrl();
+  qrEl.innerHTML = "";
+  qrEl.setAttribute("data-invite-url", inviteUrl);
+
+  if (typeof QRCode === "undefined") {
+    qrEl.innerHTML = `<a href="${escapeHtml(inviteUrl)}">${escapeHtml(inviteUrl)}</a>`;
+    return;
+  }
+
+  new QRCode(qrEl, {
+    text: inviteUrl,
+    width: 148,
+    height: 148,
+    colorDark: "#172033",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M,
+  });
 }
 
 function formatReviewText(text) {
@@ -822,10 +861,6 @@ function renderPoster({ scroll = true } = {}) {
   const posterScores = getPosterScores();
   const persona = getCurrentPersona();
 
-  const qrMarkup = POSTER_QR_IMAGE_SRC
-    ? `<img class="poster-qr-img" src="${escapeHtml(POSTER_QR_IMAGE_SRC)}" alt="扫码参与测评二维码">`
-    : `<div class="poster-qr-placeholder" aria-hidden="true"></div>`;
-
   posterSection.innerHTML = `
     <article class="poster-card poster-card-v2" id="personalityPoster">
       <div class="poster-glow poster-glow-one"></div>
@@ -862,7 +897,7 @@ function renderPoster({ scroll = true } = {}) {
 
       <div class="poster-bottom poster-bottom-v2">
         <div class="poster-qr-box">
-          ${qrMarkup}
+          <div class="poster-qr-code" id="posterQrCode" aria-label="扫码进入测评首页"></div>
         </div>
 
         <div class="poster-bottom-copy">
@@ -878,6 +913,7 @@ function renderPoster({ scroll = true } = {}) {
 
   requestAnimationFrame(() => {
     drawPosterRadar(posterScores);
+    renderInviteQrCode();
     if (scroll) {
       posterSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -1429,6 +1465,8 @@ function injectDevToolbar(activePage, activeRound = 1, activePair = "bfi_E+bfi_A
     });
   }
 }
+
+captureReferralParam();
 
 loadConfig()
   .then(setupDevPreview)

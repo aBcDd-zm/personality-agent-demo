@@ -1235,24 +1235,31 @@ body.bfi-mode .app-shell {
   box-shadow: 0 12px 30px rgba(23, 32, 51, 0.12);
 }
 
-.poster-bottom-v2 .poster-qr-img,
-.poster-bottom-v2 .poster-qr-placeholder {
-  display: block;
+.poster-bottom-v2 .poster-qr-code {
+  display: grid;
+  place-items: center;
   width: 100%;
   height: 100%;
   border-radius: 10px;
+  overflow: hidden;
 }
 
-.poster-bottom-v2 .poster-qr-img {
-  object-fit: cover;
+.poster-bottom-v2 .poster-qr-code canvas,
+.poster-bottom-v2 .poster-qr-code img {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  image-rendering: pixelated;
 }
 
-.poster-bottom-v2 .poster-qr-placeholder {
-  background:
-    linear-gradient(90deg, #172033 8px, transparent 8px) 0 0 / 18px 18px,
-    linear-gradient(#172033 8px, transparent 8px) 0 0 / 18px 18px,
-    linear-gradient(90deg, transparent 10px, #172033 10px 13px, transparent 13px) 0 0 / 18px 18px,
-    #fff;
+.poster-bottom-v2 .poster-qr-code a {
+  color: #172033;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-align: center;
+  text-decoration: none;
 }
 
 .poster-bottom-copy {
@@ -2459,19 +2466,10 @@ body.cover-mode .app-shell {
   }
 }
 
-/* ===== 海报二维码区域：暂时留白 ===== */
+/* ===== 海报二维码区域：真实邀请二维码 ===== */
 
 .poster-bottom-v2 .poster-qr-box {
   background: #ffffff;
-}
-
-.poster-bottom-v2 .poster-qr-placeholder {
-  background: #ffffff;
-  border: 1px dashed rgba(102, 112, 133, 0.35);
-}
-
-.poster-bottom-v2 .poster-qr-img {
-  display: none;
 }
 
 /* ===== 海报：去掉五维度分数卡片区域 ===== */
