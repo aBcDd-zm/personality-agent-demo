@@ -1,6 +1,6 @@
 # personality-agent-demo-v06 服务器交接清单
 
-请服务器同学在部署前确认并提供以下信息。当前公网环境已部署一版可运行服务，下面同时记录现有环境，后续迁移或重新部署时可作为对照。
+请服务器同学在部署前确认并提供以下信息。当前线上环境已完成部署，下面记录现有公网信息，后续迁移或重新部署时可作为对照。
 
 ## 服务器信息
 
@@ -59,12 +59,20 @@ uvicorn backend.main:app --host 0.0.0.0 --port 8000
 personality-agent-demo-v06
 ```
 
+当前线上入口和静态资源版本：
+
+```text
+http://139.196.23.47/
+styles.css?v=0605-1
+app.js?v=0605-3
+```
+
 常用检查命令：
 
 ```bash
 systemctl is-active personality-agent-demo-v06
 curl -s -o /tmp/home.html -w "%{http_code} %{size_download}\n" http://127.0.0.1:8000/
-grep -n "styles.css?v=0604-6\|app.js?v=0604-6" /tmp/home.html
+grep -n "styles.css?v=0605-1\|app.js?v=0605-3" /tmp/home.html
 ```
 
 ## 数据目录和备份
@@ -102,9 +110,10 @@ data/personality_demo.db-shm
 | 二维码内容为 `/?ref=当前participantId` |  |
 | 扫码后进入首页重新测评，不显示分享者结果 |  |
 | 点击开始后生成新的 `participant_id` |  |
-| “保存结果海报”可生成完整 PNG |  |
-| 手机端长按完整海报图片可保存 |  |
-| 保存后的海报包含人格卡、人格名称、邀请文案和二维码 |  |
+| 移动端顶部主海报自动变成完整 PNG 图片 |  |
+| 移动端不显示下面的小海报预览/下载/生成区域 |  |
+| 手机端长按顶部完整海报图片可保存 |  |
+| 保存后的海报包含人格卡、人格名称、标签、大五人格雷达图、邀请文案和二维码 |  |
 | 保存后海报中的二维码真实可扫码 |  |
 | `data/personality_demo.db` 可以生成 |  |
 | `/api/export/csv` 可以下载 |  |
@@ -117,4 +126,5 @@ data/personality_demo.db-shm
 - 本项目不接 MySQL、MongoDB、PostgreSQL 等外部数据库服务。
 - 当前 CSV 只导出已提交 BFI 问卷并提交过至少一轮情景任务的数据。
 - 当前结果页不使用 `/share/{participant_id}` 旧分享结果页方案。二维码只用于邀请别人从首页重新测评。
-- 当前完整海报保存由前端原生 canvas 生成 PNG，并显示为真实 `img#resultPosterImg`；二维码已绘制进最终 PNG。
+- 当前完整海报保存由前端原生 canvas 生成 PNG，并显示为顶部主海报位置的 `img#resultPosterImg`。
+- 当前 PNG 尺寸为 `1080 x 1880`，包含人格卡、人格名称、标签、大五人格雷达图、邀请文案和二维码。

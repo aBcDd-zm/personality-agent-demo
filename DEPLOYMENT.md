@@ -65,36 +65,33 @@ CSV 当前导出范围是：已经提交 BFI 问卷，并且至少提交过一�
 
 ## 当前公网部署状态
 
-当前公网部署使用：
+当前线上环境：
 
-- 公网 IP：`139.196.23.47`
-- 部署目录：`/opt/personality-agent-demo-v06`
-- systemd 服务：`personality-agent-demo-v06`
-- FastAPI 监听：`127.0.0.1:8000`
-- 首页入口：`http://139.196.23.47/`
-- 当前前端静态资源版本：`styles.css?v=0604-6`、`app.js?v=0604-6`
+| 项目 | 当前值 |
+|---|---|
+| 公网首页 | `http://139.196.23.47/` |
+| SSH 用户 | `root` |
+| 部署目录 | `/opt/personality-agent-demo-v06` |
+| systemd 服务 | `personality-agent-demo-v06` |
+| FastAPI 监听 | `127.0.0.1:8000` |
+| 当前 CSS 版本 | `styles.css?v=0605-1` |
+| 当前 JS 版本 | `app.js?v=0605-3` |
 
-部署更新前建议先备份线上前端文件：
+线上服务检查：
+
+```bash
+systemctl is-active personality-agent-demo-v06
+curl -s -o /tmp/home.html -w "%{http_code} %{size_download}\n" http://127.0.0.1:8000/
+grep -n "styles.css?v=0605-1\|app.js?v=0605-3" /tmp/home.html
+```
+
+前端文件更新前建议先备份：
 
 ```bash
 cd /opt/personality-agent-demo-v06
 ts=$(date +%Y%m%d_%H%M%S)
-mkdir -p backups/poster_export_$ts
-cp frontend/app.js frontend/styles.css frontend/index.html backups/poster_export_$ts/
-```
-
-上传前端文件后重启服务：
-
-```bash
-systemctl restart personality-agent-demo-v06
-systemctl is-active personality-agent-demo-v06
-```
-
-服务器本机验收：
-
-```bash
-curl -s -o /tmp/home.html -w "%{http_code} %{size_download}\n" http://127.0.0.1:8000/
-grep -n "styles.css?v=0604-6\|app.js?v=0604-6" /tmp/home.html
+mkdir -p backups/frontend_$ts
+cp frontend/app.js frontend/styles.css frontend/index.html backups/frontend_$ts/
 ```
 
 ## 数据库文件
@@ -278,7 +275,7 @@ http://example.com/
 
 ## 结果页二维码和海报保存验收
 
-当前结果页不使用旧的 `/share/{participant_id}` 分享结果页方案。二维码内容必须始终是首页邀请入口：
+当前结果页不使用 `/share/{participant_id}` 分享结果页方案。二维码内容必须始终是首页邀请入口：
 
 ```text
 /?ref=当前participantId
@@ -286,16 +283,15 @@ http://example.com/
 
 验收步骤：
 
-1. 手机或浏览器打开首页，完成一次完整测评。
-2. 进入结果页后确认二维码可扫码，扫码后进入首页，而不是分享者结果页。
-3. 点击“保存结果海报”。
-4. 页面应生成一张完整海报图片 `img#resultPosterImg`。
-5. 手机端长按该完整海报图片保存；电脑端可点击“下载海报 PNG”。
-6. 保存后的图片应包含人格卡图片、人格名称、邀请文案和二维码。
-7. 使用另一台手机扫描保存后图片中的二维码，应进入 `/?ref=分享者participantId` 首页入口。
-8. 被邀请者点击开始后，应生成新的 `participant_id`，不能沿用分享者的 `participant_id`。
+1. 手机打开 `http://139.196.23.47/`，完成一次完整测评。
+2. 进入结果页后，顶部主海报应自动变成一张完整 PNG 图片。
+3. 移动端下方不显示“小海报预览 + 下载海报 PNG + 生成海报”区域。
+4. 长按顶部完整海报图片，应可以保存整张图片。
+5. 保存后的图片应包含人格卡、人格名称、标签、大五人格雷达图、底部邀请文案和二维码。
+6. 扫描保存后图片中的二维码，应进入 `/?ref=分享者participantId` 首页入口。
+7. 被邀请者点击开始后，应生成新的 `participant_id`，不能沿用分享者的 `participant_id`。
 
-实现上使用原生 canvas 手动绘制 PNG，二维码由当前 `participantId` 生成并绘制进最终 canvas。不要改成只保存二维码图片、只保存人格卡图片、长按 DOM 区块，或 `/share` 分享结果页。
+当前导出的完整 PNG 尺寸为 `1080 x 1880`。二维码、人格卡、雷达图和底部邀请区都由原生 canvas 绘制进最终图片。
 
 ## 常见问题
 
