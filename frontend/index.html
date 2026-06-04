@@ -16,13 +16,13 @@
           今天，你的人生副本是：职场打工人的一天
         </p>
         <p class="cover-desc">
-          30 道人格自评 + 6 轮情境回答，生成你的职场画像
+          30 题人格自评 + 6 轮情境问答，生成你的职场画像
         </p>
-        <button class="primary cover-action" id="coverStartBtn">开始测评</button>
+        <button class="primary cover-action" id="coverStartBtn">开启副本</button>
       </div>
 
       <p class="consent-note">
-        本测评仅用于学习、研究与产品体验，数据会匿名化处理；你可以自愿参与。点击开始即表示你已知情并同意参与。
+        *本测评仅用于学习、研究与产品体验，数据将匿名化处理，<br class="mobile-break">点击开始即表示您已知情并同意参与。
       </p>
     </section>
 
@@ -31,7 +31,7 @@
         <div>
           <p class="eyebrow">Your Workplace Persona</p>
           <h1>职场人格副本</h1>
-          <p class="subtitle">通过 30 道人格自评题 + 6 轮职场情境回答，生成你的职场人格画像。</p>
+          <p class="subtitle">30 题人格自评 + 6 轮情境问答，生成你的职场画像</p>
         </div>
         <div class="status-card">
           <span>当前阶段</span>
@@ -45,8 +45,7 @@
     </div>
 
     <section id="screen-info" class="card screen">
-      <h2>1. 基本信息</h2>
-      <p class="hint">以下信息均为可选项，只用于更好地理解不同群体的测评体验。</p>
+      <p class="hint">以下信息均为可选项，只用于更好地理解不同群体的使用体验。</p>
       <div class="grid-3">
         <label>年龄段
           <select id="ageGroup">
@@ -78,12 +77,11 @@
           <input id="education" placeholder="如：实习生、产品助理、自由职业等" />
         </label>
       </div>
-      <button class="primary" id="startBtn">进入测评</button>
+      <button class="primary" id="startBtn">进入副本</button>
     </section>
 
     <section id="screen-bfi" class="card screen">
-      <h2>2. 人格倾向自评</h2>
-      <p class="hint">请根据你的真实情况完成以下 30 个陈述，从 1-5 分选择你的同意程度。你可以随时滚动回看并修改已经选择的答案。</p>
+      <p class="hint">请根据真实情况完成以下 30 个问题，从 1-5 分选择你的同意程度。</p>
       <div class="bfi-sticky-panel" id="bfiStickyPanel">
         <details class="bfi-panel-section">
           <summary>
@@ -114,14 +112,14 @@
 
       <div id="bfiList"></div>
       <p id="bfiError" class="error hidden"></p>
-      <button class="primary" id="submitBfiBtn">提交测评，进入职场情境任务</button>
+      <button class="primary" id="submitBfiBtn">提交问卷，进入职场情境问答</button>
     </section>
 
     <section id="screen-task" class="card screen">
       <div class="task-topline">
         <div>
           <p class="eyebrow" id="taskCounter">任务 1 / 6</p>
-          <h2 id="taskName">情境任务</h2>
+          <h2 id="taskName">职场情境问答</h2>
         </div>
         <span class="tag hidden" id="targetTraits"></span>
       </div>
@@ -142,16 +140,21 @@
     </section>
 
     <section id="screen-finish" class="card screen">
-      <h2>我的职场人格画像</h2>
-      <p class="hint">恭喜得到您的人格画像，下列数据可直观了解不同倾向的强弱。</p>
+      <h2>恭喜得到您的人格画像！</h2>
+      <p class="hint">以下是您的专属人格海报，可保存或分享给朋友。</p>
+      <div class="result-box" id="scoreBox"></div>
+      <div id="posterSection" class="poster-section hidden"></div>
       <div id="bfiFinishReview" class="review-panel hidden"></div>
       <div id="taskFinishReview" class="review-panel hidden"></div>
-      <div class="result-box" id="scoreBox"></div>
-      <p class="thanks">感谢您的参与！</p>
-      <button class="secondary hidden" id="restartBtn">重新开始</button>
+      <div class="finish-actions">
+        <button class="primary" id="generatePosterBtn">感谢您的参与，点击生成人格海报</button>
+        <button class="secondary hidden" id="restartBtn">重新开始</button>
+      </div>
     </section>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/vendor/qrcode.min.js?v=0604-3"></script>
+  <script src="/static/personaCards.js?v=0604-2"></script>
+  <script src="/static/app.js?v=0604-3"></script>
 </body>
 </html>
