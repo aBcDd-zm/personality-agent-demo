@@ -66,6 +66,14 @@ const SCORE_KEY_TO_PERSONA = {
   bfi_N: "RISK",
 };
 
+const POSTER_EXPORT_WIDTH = 1080;
+const POSTER_EXPORT_HEIGHT = 2140;
+const MOBILE_POSTER_QUERY = "(max-width: 720px)";
+
+function isMobilePosterViewport() {
+  return window.matchMedia?.(MOBILE_POSTER_QUERY).matches || window.innerWidth <= 720;
+}
+
 function countChars(text) {
   return (text || "").replace(/\s+/g, "").length;
 }
@@ -207,11 +215,15 @@ function captureReferralParam() {
   }
 }
 
+const PUBLIC_INVITE_BASE_URL = "http://139.196.23.47";
+
 function getInviteUrl() {
-  const inviteUrl = new URL("/", window.location.origin);
+  const inviteUrl = new URL("/", PUBLIC_INVITE_BASE_URL);
+
   if (state.participantId) {
     inviteUrl.searchParams.set("ref", state.participantId);
   }
+
   return inviteUrl.href;
 }
 
@@ -236,6 +248,453 @@ function renderInviteQrCode() {
     colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.M,
   });
+}
+
+function roundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawRoundRect(ctx, x, y, width, height, radius, fillStyle, strokeStyle = null, lineWidth = 1) {
+  roundedRect(ctx, x, y, width, height, radius);
+  ctx.fillStyle = fillStyle;
+  ctx.fill();
+  if (strokeStyle) {
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+  }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("图片加载失败，请稍后重试"));
+    img.src = src;
+  });
+}
+
+function drawImageContain(ctx, img, x, y, width, height) {
+  const ratio = Math.min(width / img.naturalWidth, height / img.naturalHeight);
+  const drawWidth = img.naturalWidth * ratio;
+  const drawHeight = img.naturalHeight * ratio;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+  ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+}
+
+function wrapCanvasText(ctx, text, maxWidth) {
+  const chars = Array.from(String(text || ""));
+  const lines = [];
+  let line = "";
+
+  chars.forEach((char) => {
+    const testLine = `${line}${char}`;
+    if (line && ctx.measureText(testLine).width > maxWidth) {
+      lines.push(line);
+      line = char;
+    } else {
+      line = testLine;
+    }
+  });
+
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawCenteredWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
+  const lines = wrapCanvasText(ctx, text, maxWidth).slice(0, maxLines);
+  lines.forEach((line, index) => {
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
+  return y + lines.length * lineHeight;
+}
+
+function drawLeftWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
+  const lines = wrapCanvasText(ctx, text, maxWidth).slice(0, maxLines);
+  lines.forEach((line, index) => {
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
+  return y + lines.length * lineHeight;
+}
+
+function drawRadarChart(ctx, items, bounds, options = {}) {
+  const {
+    gridStroke = "rgba(255, 255, 255, 0.38)",
+    gridFill = "rgba(255, 255, 255, 0.05)",
+    shapeFill = "rgba(255, 255, 255, 0.28)",
+    shapeStroke = "#ffffff",
+    pointFill = "#ffffff",
+    labelFill = "#ffffff",
+    scoreFill = "#ffffff",
+    labelFont = "700 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    scoreFont = "600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  } = options;
+
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2 + (bounds.centerOffsetY || 0);
+  const radius = Math.min(bounds.width, bounds.height) * (bounds.radiusRatio || 0.34);
+  const labelRadius = Math.min(bounds.width, bounds.height) * (bounds.labelRadiusRatio || 0.43);
+  const startAngle = -Math.PI / 2;
+
+  function getPoint(index, valueRadius) {
+    const angle = startAngle + (Math.PI * 2 * index) / items.length;
+    return {
+      x: centerX + Math.cos(angle) * valueRadius,
+      y: centerY + Math.sin(angle) * valueRadius,
+    };
+  }
+
+  ctx.save();
+  ctx.lineWidth = bounds.gridLineWidth || 1;
+  ctx.strokeStyle = gridStroke;
+  ctx.fillStyle = gridFill;
+
+  for (let level = 5; level >= 1; level -= 1) {
+    const levelRadius = (radius * level) / 5;
+    ctx.beginPath();
+    items.forEach((_, index) => {
+      const point = getPoint(index, levelRadius);
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  items.forEach((_, index) => {
+    const point = getPoint(index, radius);
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+  });
+
+  const dataPoints = items.map((item, index) => {
+    const value = item.percent === null ? 0 : item.percent;
+    return getPoint(index, radius * (value / 100));
+  });
+
+  ctx.beginPath();
+  dataPoints.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = shapeFill;
+  ctx.strokeStyle = shapeStroke;
+  ctx.lineWidth = bounds.shapeLineWidth || 2.5;
+  ctx.fill();
+  ctx.stroke();
+
+  dataPoints.forEach((point) => {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, bounds.pointRadius || 4, 0, Math.PI * 2);
+    ctx.fillStyle = pointFill;
+    ctx.fill();
+  });
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  items.forEach((item, index) => {
+    const labelPoint = getPoint(index, labelRadius);
+    ctx.fillStyle = labelFill;
+    ctx.font = labelFont;
+    ctx.fillText(item.name, labelPoint.x, labelPoint.y - (bounds.labelGap || 8));
+    ctx.fillStyle = scoreFill;
+    ctx.font = scoreFont;
+    ctx.fillText(`${item.displayScore}分`, labelPoint.x, labelPoint.y + (bounds.scoreGap || 12));
+  });
+
+  ctx.restore();
+}
+
+async function createQrCanvas(text, size) {
+  if (typeof QRCode === "undefined") {
+    throw new Error("二维码生成组件未加载，请刷新页面后重试");
+  }
+
+  const holder = document.createElement("div");
+  holder.style.position = "fixed";
+  holder.style.left = "-9999px";
+  holder.style.top = "0";
+  holder.style.width = `${size}px`;
+  holder.style.height = `${size}px`;
+  document.body.appendChild(holder);
+
+  new QRCode(holder, {
+    text,
+    width: size,
+    height: size,
+    colorDark: "#172033",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M,
+  });
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  const qrCanvas = holder.querySelector("canvas");
+  if (qrCanvas) {
+    const copy = document.createElement("canvas");
+    copy.width = size;
+    copy.height = size;
+    copy.getContext("2d").drawImage(qrCanvas, 0, 0, size, size);
+    holder.remove();
+    return copy;
+  }
+
+  const qrImg = holder.querySelector("img");
+  if (qrImg?.src) {
+    const img = await loadImage(qrImg.src);
+    const copy = document.createElement("canvas");
+    copy.width = size;
+    copy.height = size;
+    copy.getContext("2d").drawImage(img, 0, 0, size, size);
+    holder.remove();
+    return copy;
+  }
+
+  holder.remove();
+  throw new Error("二维码生成失败，请稍后重试");
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("海报生成失败，请稍后重试"));
+    }, "image/png", 1);
+  });
+}
+
+async function buildPosterExportCanvas() {
+  const persona = getCurrentPersona();
+  const posterScores = getPosterScores();
+  const inviteUrl = getInviteUrl();
+  const canvas = document.createElement("canvas");
+  canvas.width = POSTER_EXPORT_WIDTH;
+  canvas.height = POSTER_EXPORT_HEIGHT;
+
+  const ctx = canvas.getContext("2d");
+  const personaImage = await loadImage(persona.image);
+  const qrCanvas = await createQrCanvas(inviteUrl, 300);
+
+  const bgGradient = ctx.createLinearGradient(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+  bgGradient.addColorStop(0, "#0f766e");
+  bgGradient.addColorStop(0.52, "#2563eb");
+  bgGradient.addColorStop(1, "#4f46e5");
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+
+  const glowOne = ctx.createRadialGradient(170, 170, 20, 170, 170, 360);
+  glowOne.addColorStop(0, "rgba(255,255,255,0.30)");
+  glowOne.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glowOne;
+  ctx.fillRect(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+
+  const glowTwo = ctx.createRadialGradient(920, 420, 20, 920, 420, 400);
+  glowTwo.addColorStop(0, "rgba(125,211,252,0.24)");
+  glowTwo.addColorStop(1, "rgba(125,211,252,0)");
+  ctx.fillStyle = glowTwo;
+  ctx.fillRect(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+
+  drawRoundRect(ctx, 48, 48, POSTER_EXPORT_WIDTH - 96, POSTER_EXPORT_HEIGHT - 96, 42, "rgba(255,255,255,0.05)", "rgba(255,255,255,0.18)", 2);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
+  ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.letterSpacing = "0px";
+  ctx.fillText("WORKPLACE PERSONA REPORT", POSTER_EXPORT_WIDTH / 2, 122);
+
+  const imgBox = { x: 318, y: 175, width: 444, height: 554 };
+  ctx.save();
+  ctx.shadowColor = "rgba(23,32,51,0.26)";
+  ctx.shadowBlur = 46;
+  ctx.shadowOffsetY = 24;
+  drawRoundRect(ctx, imgBox.x, imgBox.y, imgBox.width, imgBox.height, 42, "rgba(255,255,255,0.16)", "rgba(255,255,255,0.42)", 2);
+  ctx.restore();
+
+  ctx.save();
+  roundedRect(ctx, imgBox.x + 12, imgBox.y + 12, imgBox.width - 24, imgBox.height - 24, 34);
+  ctx.clip();
+  drawImageContain(ctx, personaImage, imgBox.x + 18, imgBox.y + 18, imgBox.width - 36, imgBox.height - 36);
+  ctx.restore();
+
+  ctx.fillStyle = "rgba(255,255,255,0.76)";
+  ctx.font = "900 34px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.fillText(persona.code, POSTER_EXPORT_WIDTH / 2, 800);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.fillText(`「${persona.name}」`, POSTER_EXPORT_WIDTH / 2, 892);
+
+  ctx.fillStyle = "rgba(255,255,255,0.90)";
+  ctx.font = "600 34px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  drawCenteredWrappedText(ctx, persona.slogan, POSTER_EXPORT_WIDTH / 2, 970, 820, 52, 3);
+
+  const tagY = 1010;
+  const tagGap = 18;
+  ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  const tagWidths = persona.tags.map((tag) => Math.ceil(ctx.measureText(tag).width) + 54);
+  const totalTagWidth = tagWidths.reduce((sum, width) => sum + width, 0) + tagGap * Math.max(0, tagWidths.length - 1);
+  let tagX = (POSTER_EXPORT_WIDTH - totalTagWidth) / 2;
+  persona.tags.forEach((tag, index) => {
+    const width = tagWidths[index];
+    drawRoundRect(ctx, tagX, tagY, width, 54, 27, "rgba(255,255,255,0.15)", "rgba(255,255,255,0.28)", 1.5);
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.fillText(tag, tagX + width / 2, tagY + 37);
+    tagX += width + tagGap;
+  });
+
+  const radarPanel = { x: 132, y: 1110, width: POSTER_EXPORT_WIDTH - 264, height: 620 };
+
+drawRoundRect(
+  ctx,
+  radarPanel.x,
+  radarPanel.y,
+  radarPanel.width,
+  radarPanel.height,
+  34,
+  "rgba(255,255,255,0.13)",
+  "rgba(255,255,255,0.24)",
+  1.5
+);
+
+// 标题：左中文，右英文
+ctx.textAlign = "left";
+ctx.fillStyle = "rgba(255,255,255,0.92)";
+ctx.font = "900 32px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+ctx.fillText("大五人格雷达图", radarPanel.x + 38, radarPanel.y + 58);
+
+ctx.textAlign = "right";
+ctx.fillStyle = "rgba(255,255,255,0.62)";
+ctx.font = "800 22px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+ctx.fillText("Big Five Profile", radarPanel.x + radarPanel.width - 38, radarPanel.y + 58);
+
+// 雷达图：居中放大
+drawRadarChart(ctx, posterScores, {
+  x: radarPanel.x + 38,
+  y: radarPanel.y + 82,
+  width: radarPanel.width - 76,
+  height: radarPanel.height - 112,
+  centerOffsetY: 18,
+  radiusRatio: 0.40,
+  labelRadiusRatio: 0.50,
+  pointRadius: 5,
+  labelGap: 13,
+  scoreGap: 18,
+  gridLineWidth: 1.3,
+  shapeLineWidth: 4,
+}, {
+  labelFont: "900 24px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+  scoreFont: "800 20px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif",
+});
+
+  const bottomY = 1790;
+  drawRoundRect(ctx, 78, bottomY, POSTER_EXPORT_WIDTH - 156, 260, 34, "rgba(255,255,255,0.96)", "rgba(216,222,233,0.92)", 2);
+
+  const qrBoxX = 132;
+  const qrBoxY = bottomY + 24;
+  drawRoundRect(ctx, qrBoxX, qrBoxY, 220, 220, 30, "#ffffff", "rgba(216,222,233,0.96)", 2);
+  ctx.drawImage(qrCanvas, qrBoxX + 10, qrBoxY + 10, 200, 200);
+
+  const inviteCopyX = 400;
+  const inviteCopyMaxWidth = POSTER_EXPORT_WIDTH - inviteCopyX - 132;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#172033";
+  ctx.font = "900 36px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  const inviteTitleEndY = drawLeftWrappedText(
+    ctx,
+    "长按保存，转发给朋友，邀请他们生成自己的专属职场人格画像",
+    inviteCopyX,
+    bottomY + 72,
+    inviteCopyMaxWidth,
+    48,
+    2,
+  );
+
+  ctx.fillStyle = "#667085";
+  ctx.font = "700 23px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  drawLeftWrappedText(
+    ctx,
+    "扫码进入测评首页，从头生成自己的结果",
+    inviteCopyX,
+    inviteTitleEndY + 18,
+    inviteCopyMaxWidth,
+    32,
+    2,
+  );
+
+  canvas.dataset.inviteUrl = inviteUrl;
+  return canvas;
+}
+
+async function exportPosterImage() {
+  const button = $("savePosterBtn");
+  const status = $("posterExportStatus");
+  const img = $("resultPosterImg");
+  const downloadLink = $("posterDownloadLink");
+  const poster = $("personalityPoster");
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.innerText = "正在生成海报...";
+    }
+    if (status) {
+      status.textContent = "正在生成完整海报图片，请稍候。";
+      status.classList.remove("error");
+    }
+
+    const canvas = await buildPosterExportCanvas();
+    const dataUrl = canvas.toDataURL("image/png");
+    const inviteUrl = canvas.dataset.inviteUrl || getInviteUrl();
+
+    if (img) {
+      img.src = dataUrl;
+      img.alt = "完整结果海报，包含人格卡、人格名称、邀请文案和二维码";
+      img.setAttribute("data-invite-url", inviteUrl);
+      img.classList.remove("hidden");
+    }
+
+    if (poster) {
+      poster.classList.add("hidden");
+    }
+
+    if (downloadLink) {
+      downloadLink.href = dataUrl;
+      downloadLink.download = `workplace-persona-${state.participantId || "poster"}.png`;
+      downloadLink.classList.remove("hidden");
+    }
+
+    if (status) {
+      status.textContent = "海报已生成。手机端请长按上方完整海报图片保存；电脑端可点击下载。";
+    }
+  } catch (err) {
+    if (status) {
+      status.textContent = err.message || "海报生成失败，请稍后重试。";
+      status.classList.add("error");
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.innerText = "保存结果海报";
+    }
+  }
 }
 
 function formatReviewText(text) {
@@ -907,6 +1366,15 @@ function renderPoster({ scroll = true } = {}) {
         </strong>
       </div>
     </article>
+    <img class="result-poster-img poster-main-export-img hidden" id="resultPosterImg" alt="完整结果海报">
+
+    <div class="poster-export-panel">
+      <button class="primary poster-save-btn" id="savePosterBtn">保存结果海报</button>
+      <p class="poster-export-hint" id="posterExportStatus">
+        点击后会把上方海报转换成完整 PNG。手机端长按上方图片保存，电脑端可下载。
+      </p>
+      <a class="secondary link-btn poster-download-link hidden" id="posterDownloadLink" href="#" download="workplace-persona-poster.png">下载海报 PNG</a>
+    </div>
   `;
 
   posterSection.classList.remove("hidden");
@@ -914,6 +1382,10 @@ function renderPoster({ scroll = true } = {}) {
   requestAnimationFrame(() => {
     drawPosterRadar(posterScores);
     renderInviteQrCode();
+    $("savePosterBtn")?.addEventListener("click", exportPosterImage);
+    if (isMobilePosterViewport()) {
+      requestAnimationFrame(() => exportPosterImage());
+    }
     if (scroll) {
       posterSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -936,79 +1408,14 @@ function drawPosterRadar(items) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const centerX = width / 2;
-  const centerY = height / 2 + 18;
-  const radius = Math.min(width, height) * 0.36;
-  const labelRadius = Math.min(width, height) * 0.43;
-  const startAngle = -Math.PI / 2;
-
-  function getPoint(index, valueRadius) {
-    const angle = startAngle + (Math.PI * 2 * index) / items.length;
-    return {
-      x: centerX + Math.cos(angle) * valueRadius,
-      y: centerY + Math.sin(angle) * valueRadius,
-    };
-  }
-
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.38)";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-
-  for (let level = 5; level >= 1; level -= 1) {
-    const levelRadius = (radius * level) / 5;
-    ctx.beginPath();
-    items.forEach((_, index) => {
-      const point = getPoint(index, levelRadius);
-      if (index === 0) ctx.moveTo(point.x, point.y);
-      else ctx.lineTo(point.x, point.y);
-    });
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  items.forEach((_, index) => {
-    const point = getPoint(index, radius);
-    ctx.beginPath();
-    ctx.moveTo(centerX, centerY);
-    ctx.lineTo(point.x, point.y);
-    ctx.stroke();
-  });
-
-  const dataPoints = items.map((item, index) => {
-    const value = item.percent === null ? 0 : item.percent;
-    return getPoint(index, radius * (value / 100));
-  });
-
-  ctx.beginPath();
-  dataPoints.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  });
-  ctx.closePath();
-  ctx.fillStyle = "rgba(255, 255, 255, 0.28)";
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2.5;
-  ctx.fill();
-  ctx.stroke();
-
-  dataPoints.forEach((point) => {
-    ctx.beginPath();
-    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-  });
-
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  items.forEach((item, index) => {
-    const labelPoint = getPoint(index, labelRadius);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "700 14px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    ctx.fillText(item.name, labelPoint.x, labelPoint.y - 8);
-    ctx.font = "600 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    ctx.fillText(`${item.displayScore}分`, labelPoint.x, labelPoint.y + 12);
+  drawRadarChart(ctx, items, {
+    x: 0,
+    y: 0,
+    width,
+    height,
+    centerOffsetY: 18,
+    radiusRatio: 0.36,
+    labelRadiusRatio: 0.43,
   });
 }
 
@@ -1174,25 +1581,39 @@ $("answer2").addEventListener("input", updateCounts);
 // /?dev=poster
 
 const DEV_POSTER_PAIR_OPTIONS = [
-  { key: "bfi_O+bfi_C", label: "开放 × 尽责" },
-  { key: "bfi_O+bfi_E", label: "开放 × 外向" },
-  { key: "bfi_O+bfi_A", label: "开放 × 宜人" },
-  { key: "bfi_O+bfi_N", label: "开放 × 神经质" },
-  { key: "bfi_C+bfi_E", label: "尽责 × 外向" },
-  { key: "bfi_C+bfi_A", label: "尽责 × 宜人" },
-  { key: "bfi_C+bfi_N", label: "尽责 × 神经质" },
-  { key: "bfi_E+bfi_A", label: "外向 × 宜人" },
-  { key: "bfi_E+bfi_N", label: "外向 × 神经质" },
-  { key: "bfi_A+bfi_N", label: "宜人 × 神经质" },
+  // 8 种正式海报
+  { key: "MOOD", label: "MOOD｜读空气" },
+  { key: "DONE", label: "DONE｜进度条" },
+  { key: "IDEA", label: "IDEA｜点子王" },
+  { key: "MIC", label: "MIC｜会议嘴替" },
+  { key: "GLUE", label: "GLUE｜调停员" },
+  { key: "RISK", label: "RISK｜预言家" },
+  { key: "DIVE", label: "DIVE｜潜水员" },
+  { key: "CTRL", label: "CTRL｜颗粒度" },
 
-  { key: "tie_top2", label: "最高两项并列" },
-  { key: "tie_top3", label: "最高三项并列" },
-  { key: "tie_top4", label: "最高四项并列" },
-  { key: "tie_all5", label: "五项全并列" },
+  // 特殊优先级
+  { key: "special_all_high", label: "全高→CTRL" },
+  { key: "special_ctrl_over_risk", label: "CTRL>RISK" },
+  { key: "special_ctrl_over_mic_done", label: "CTRL>MIC/DONE" },
+  { key: "special_risk_over_done", label: "RISK>DONE" },
+  { key: "special_dive_over_done", label: "DIVE>DONE" },
+  { key: "special_glue_over_mic", label: "GLUE>MIC" },
+  { key: "special_mic_over_idea", label: "MIC>IDEA" },
+  { key: "special_idea_over_done", label: "IDEA>DONE" },
 
-  { key: "tie_second2", label: "第二高两项并列" },
-  { key: "tie_second3", label: "第二高三项并列" },
-  { key: "tie_second4", label: "第二高四项并列" },
+  // fallback
+  { key: "fallback_O", label: "开放最高" },
+  { key: "fallback_C", label: "尽责最高" },
+  { key: "fallback_E", label: "外向最高" },
+  { key: "fallback_A", label: "宜人最高" },
+  { key: "fallback_N", label: "神经质最高" },
+
+  // 并列
+  { key: "tie_all_low", label: "五项低分并列" },
+  { key: "tie_OC_low", label: "开放=尽责" },
+  { key: "tie_EA_low", label: "外向=宜人" },
+  { key: "tie_AN_low", label: "宜人=神经质" },
+  { key: "tie_EA_high", label: "高外向=高宜人" },
 ];
 
 function percentToScore5(percent) {
@@ -1203,91 +1624,244 @@ function setDevTraitPercent(scores, key, percent) {
   scores[key] = percentToScore5(percent);
 }
 
-function makeDevBfiScores(devPairKey = "bfi_E+bfi_A") {
-  const scores = {
-    bfi_O: percentToScore5(44),
-    bfi_C: percentToScore5(42),
-    bfi_E: percentToScore5(40),
-    bfi_A: percentToScore5(38),
-    bfi_N: percentToScore5(54),
+function makeDevBfiScores(devCaseKey = "GLUE") {
+  const presets = {
+    // ===== 8 种正式人格海报 =====
+
+    MOOD: {
+      bfi_O: 38,
+      bfi_C: 42,
+      bfi_E: 40,
+      bfi_A: 64,
+      bfi_N: 44,
+    },
+
+    DONE: {
+      bfi_O: 42,
+      bfi_C: 70,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    IDEA: {
+      bfi_O: 72,
+      bfi_C: 42,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    MIC: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 72,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    GLUE: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 50,
+      bfi_A: 72,
+      bfi_N: 44,
+    },
+
+    RISK: {
+      bfi_O: 42,
+      bfi_C: 50,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 72,
+    },
+
+    DIVE: {
+      bfi_O: 42,
+      bfi_C: 60,
+      bfi_E: 30,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    CTRL: {
+      bfi_O: 42,
+      bfi_C: 76,
+      bfi_E: 60,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // ===== 特殊情况：判断优先级 =====
+
+    // 五项都高时，因为 CTRL 判断排第一，所以结果是 CTRL
+    special_all_high: {
+      bfi_O: 82,
+      bfi_C: 82,
+      bfi_E: 82,
+      bfi_A: 82,
+      bfi_N: 82,
+    },
+
+    // 同时满足 CTRL 和 RISK 时，CTRL 更优先
+    special_ctrl_over_risk: {
+      bfi_O: 42,
+      bfi_C: 80,
+      bfi_E: 60,
+      bfi_A: 38,
+      bfi_N: 80,
+    },
+
+    // 同时满足 CTRL / MIC / DONE 时，CTRL 更优先
+    special_ctrl_over_mic_done: {
+      bfi_O: 40,
+      bfi_C: 80,
+      bfi_E: 75,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // 同时满足 RISK 和 DONE 时，RISK 更优先
+    special_risk_over_done: {
+      bfi_O: 40,
+      bfi_C: 70,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 75,
+    },
+
+    // 同时满足 DIVE 和 DONE 时，DIVE 更优先
+    special_dive_over_done: {
+      bfi_O: 40,
+      bfi_C: 70,
+      bfi_E: 30,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // 同时满足 GLUE 和 MIC 时，GLUE 更优先
+    special_glue_over_mic: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 80,
+      bfi_A: 80,
+      bfi_N: 44,
+    },
+
+    // 同时满足 MIC 和 IDEA 时，MIC 更优先
+    special_mic_over_idea: {
+      bfi_O: 80,
+      bfi_C: 42,
+      bfi_E: 72,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // 同时满足 IDEA 和 DONE 时，IDEA 更优先
+    special_idea_over_done: {
+      bfi_O: 80,
+      bfi_C: 70,
+      bfi_E: 40,
+      bfi_A: 38,
+      bfi_N: 44,
+    },
+
+    // ===== fallback：没有命中任何阈值，只看最高项 =====
+
+    fallback_O: {
+      bfi_O: 60,
+      bfi_C: 56,
+      bfi_E: 52,
+      bfi_A: 50,
+      bfi_N: 48,
+    },
+
+    fallback_C: {
+      bfi_O: 56,
+      bfi_C: 60,
+      bfi_E: 40,
+      bfi_A: 50,
+      bfi_N: 48,
+    },
+
+    fallback_E: {
+      bfi_O: 56,
+      bfi_C: 54,
+      bfi_E: 60,
+      bfi_A: 50,
+      bfi_N: 48,
+    },
+
+    fallback_A: {
+      bfi_O: 56,
+      bfi_C: 54,
+      bfi_E: 40,
+      bfi_A: 60,
+      bfi_N: 48,
+    },
+
+    fallback_N: {
+      bfi_O: 56,
+      bfi_C: 54,
+      bfi_E: 40,
+      bfi_A: 50,
+      bfi_N: 60,
+    },
+
+    // ===== 并列情况 =====
+
+    // 五项都 60，没有达到任何阈值，fallback 顺序是 O → C → E → A → N，所以结果是 IDEA
+    tie_all_low: {
+      bfi_O: 60,
+      bfi_C: 60,
+      bfi_E: 60,
+      bfi_A: 60,
+      bfi_N: 60,
+    },
+
+    // 开放和尽责并列，没有达到阈值，O 排在 C 前，所以结果是 IDEA
+    tie_OC_low: {
+      bfi_O: 60,
+      bfi_C: 60,
+      bfi_E: 50,
+      bfi_A: 48,
+      bfi_N: 46,
+    },
+
+    // 外向和宜人并列低分，没有达到阈值，E 排在 A 前，所以结果是 MIC
+    tie_EA_low: {
+      bfi_O: 50,
+      bfi_C: 48,
+      bfi_E: 60,
+      bfi_A: 60,
+      bfi_N: 46,
+    },
+
+    // 宜人和神经质并列低分，没有达到阈值，A 排在 N 前，所以结果是 MOOD
+    tie_AN_low: {
+      bfi_O: 50,
+      bfi_C: 48,
+      bfi_E: 46,
+      bfi_A: 60,
+      bfi_N: 60,
+    },
+
+    // 外向和宜人都高时，会先命中 GLUE，而不是 MIC
+    tie_EA_high: {
+      bfi_O: 40,
+      bfi_C: 42,
+      bfi_E: 82,
+      bfi_A: 82,
+      bfi_N: 44,
+    },
   };
 
-  // 最高两项并列
-  if (devPairKey === "tie_top2") {
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_O", 60);
-    setDevTraitPercent(scores, "bfi_C", 45);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
+  const selected = presets[devCaseKey] || presets.GLUE;
+  const scores = {};
 
-  // 最高三项并列
-  if (devPairKey === "tie_top3") {
-   setDevTraitPercent(scores, "bfi_O", 82);
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_C", 45);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 最高四项并列
-  if (devPairKey === "tie_top4") {
-    setDevTraitPercent(scores, "bfi_O", 82);
-    setDevTraitPercent(scores, "bfi_C", 82);
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 五项全并列
-  if (devPairKey === "tie_all5") {
-    setDevTraitPercent(scores, "bfi_O", 82);
-    setDevTraitPercent(scores, "bfi_C", 82);
-    setDevTraitPercent(scores, "bfi_E", 82);
-    setDevTraitPercent(scores, "bfi_A", 82);
-    setDevTraitPercent(scores, "bfi_N", 82);
-    return scores;
-  }
-
-  // 第一高唯一，第二高两项并列
-  if (devPairKey === "tie_second2") {
-    setDevTraitPercent(scores, "bfi_E", 86);
-    setDevTraitPercent(scores, "bfi_O", 76);
-    setDevTraitPercent(scores, "bfi_C", 76);
-    setDevTraitPercent(scores, "bfi_A", 44);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 第一高唯一，第二高三项并列
-  if (devPairKey === "tie_second3") {
-    setDevTraitPercent(scores, "bfi_E", 86);
-    setDevTraitPercent(scores, "bfi_O", 76);
-    setDevTraitPercent(scores, "bfi_C", 76);
-    setDevTraitPercent(scores, "bfi_A", 76);
-    setDevTraitPercent(scores, "bfi_N", 40);
-    return scores;
-  }
-
-  // 第一高唯一，第二高四项并列
-  if (devPairKey === "tie_second4") {
-    setDevTraitPercent(scores, "bfi_E", 86);
-    setDevTraitPercent(scores, "bfi_O", 76);
-    setDevTraitPercent(scores, "bfi_C", 76);
-    setDevTraitPercent(scores, "bfi_A", 76);
-    setDevTraitPercent(scores, "bfi_N", 76);
-    return scores;
-  }
-
-  const pairKeys = devPairKey.split("+");
-
-  if (pairKeys.length === 2) {
-    setDevTraitPercent(scores, pairKeys[0], 82);
-    setDevTraitPercent(scores, pairKeys[1], 78);
-  }
+  Object.entries(selected).forEach(([key, percent]) => {
+    setDevTraitPercent(scores, key, percent);
+  });
 
   return scores;
 }
@@ -1367,7 +1941,7 @@ function setupDevPreview() {
   if (!allowedPages.includes(page)) return;
 
   const round = Number(params.get("round") || 1);
-  const pair = (params.get("pair") || "bfi_E+bfi_A").replaceAll(" ", "+");
+  const pair = (params.get("case") || params.get("pair") || "GLUE").replaceAll(" ", "+");
 
   applyDevState({
     round,
@@ -1394,7 +1968,7 @@ function setupDevPreview() {
   injectDevToolbar(page, round, pair);
 }
 
-function injectDevToolbar(activePage, activeRound = 1, activePair = "bfi_E+bfi_A") {
+function injectDevToolbar(activePage, activeRound = 1, activePair = "GLUE") {
   const old = document.getElementById("devToolbar");
   if (old) old.remove();
 
@@ -1439,9 +2013,9 @@ function injectDevToolbar(activePage, activeRound = 1, activePair = "bfi_E+bfi_A
       </div>
 
       <div class="dev-toolbar-pairs">
-        <span>海报组合</span>
+        <span>海报情况</span>
         ${DEV_POSTER_PAIR_OPTIONS.map((item) => `
-          <a class="${activePage === "poster" && activePair === item.key ? "active" : ""}" href="${basePath}?dev=poster&pair=${encodeURIComponent(item.key)}">
+          <a class="${activePage === "poster" && activePair === item.key ? "active" : ""}" href="${basePath}?dev=poster&case=${encodeURIComponent(item.key)}">
             ${item.label}
           </a>
         `).join("")}
