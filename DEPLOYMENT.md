@@ -63,6 +63,37 @@ http://服务器IP:8000
 
 CSV 当前导出范围是：已经提交 BFI 问卷，并且至少提交过一轮情景任务的数据。只填了问卷但没有提交情景问答的用户，不会出现在当前 CSV 中。
 
+## 当前公网部署状态
+
+当前线上环境：
+
+| 项目 | 当前值 |
+|---|---|
+| 公网首页 | `http://139.196.23.47/` |
+| SSH 用户 | `root` |
+| 部署目录 | `/opt/personality-agent-demo-v06` |
+| systemd 服务 | `personality-agent-demo-v06` |
+| FastAPI 监听 | `127.0.0.1:8000` |
+| 当前 CSS 版本 | `styles.css?v=0605-1` |
+| 当前 JS 版本 | `app.js?v=0605-3` |
+
+线上服务检查：
+
+```bash
+systemctl is-active personality-agent-demo-v06
+curl -s -o /tmp/home.html -w "%{http_code} %{size_download}\n" http://127.0.0.1:8000/
+grep -n "styles.css?v=0605-1\|app.js?v=0605-3" /tmp/home.html
+```
+
+前端文件更新前建议先备份：
+
+```bash
+cd /opt/personality-agent-demo-v06
+ts=$(date +%Y%m%d_%H%M%S)
+mkdir -p backups/frontend_$ts
+cp frontend/app.js frontend/styles.css frontend/index.html backups/frontend_$ts/
+```
+
 ## 数据库文件
 
 数据库路径：
@@ -241,6 +272,26 @@ http://example.com/
 ```
 
 如果需要 HTTPS，请由服务器同学配置域名解析和证书，例如使用 Certbot。
+
+## 结果页二维码和海报保存验收
+
+当前结果页不使用 `/share/{participant_id}` 分享结果页方案。二维码内容必须始终是首页邀请入口：
+
+```text
+/?ref=当前participantId
+```
+
+验收步骤：
+
+1. 手机打开 `http://139.196.23.47/`，完成一次完整测评。
+2. 进入结果页后，顶部主海报应自动变成一张完整 PNG 图片。
+3. 移动端下方不显示“小海报预览 + 下载海报 PNG + 生成海报”区域。
+4. 长按顶部完整海报图片，应可以保存整张图片。
+5. 保存后的图片应包含人格卡、人格名称、标签、大五人格雷达图、底部邀请文案和二维码。
+6. 扫描保存后图片中的二维码，应进入 `/?ref=分享者participantId` 首页入口。
+7. 被邀请者点击开始后，应生成新的 `participant_id`，不能沿用分享者的 `participant_id`。
+
+当前导出的完整 PNG 尺寸为 `1080 x 1880`。二维码、人格卡、雷达图和底部邀请区都由原生 canvas 绘制进最终图片。
 
 ## 常见问题
 
