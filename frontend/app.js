@@ -798,9 +798,10 @@ function renderPoster() {
         </div>
 
         <div class="poster-bottom-copy">
-          <strong>扫码生成你的职场人格画像</strong>
-          <p>5 分钟完成测评，看看你在团队协作中的隐藏风格～</p>
-        </div>
+          <strong>
+          <span class="poster-copy-line">长按保存，转发给朋友</span>
+          <span class="poster-copy-line">邀请他们生成自己的专属职场人格画像</span>
+        </strong>
       </div>
     </article>
   `;

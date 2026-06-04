@@ -1448,8 +1448,9 @@ body.bfi-mode .app-shell {
   min-width: 180px;
   height: 48px;
   padding: 0 30px;
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
+  font-style: italic;
   letter-spacing: 0.04em;
   color: #ffffff;
   background: linear-gradient(135deg, #1f5f5b, #245f7a);
@@ -2292,4 +2293,178 @@ body.cover-mode .app-shell {
 
 .poster-bottom-v2 .poster-qr-img {
   display: none;
+}
+
+/* ===== 海报：去掉五维度分数卡片区域 ===== */
+
+.poster-score-grid-v2 {
+  display: none !important;
+}
+
+.poster-radar-panel {
+  margin-bottom: 28px;
+}
+
+@media (max-width: 720px) {
+  .poster-radar-panel {
+    margin-bottom: 18px;
+  }
+}
+
+.poster-bottom-copy strong {
+  line-height: 1.55;
+}
+
+/* ===== 海报底部二维码 + 文案整体居中 ===== */
+
+.poster-bottom-v2 {
+  justify-content: center;
+  align-items: center;
+  gap: 28px;
+}
+
+.poster-bottom-copy {
+  flex: 0 1 auto;
+  max-width: 620px;
+  text-align: left;
+}
+
+.poster-bottom-copy strong {
+  line-height: 1.35;
+}
+
+/* 手机端也整体居中 */
+@media (max-width: 720px) {
+  .poster-bottom-v2 {
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 18px;
+  }
+
+  .poster-bottom-copy {
+    max-width: calc(100% - 112px);
+    text-align: left;
+  }
+
+  .poster-bottom-copy strong {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+
+  .poster-bottom-copy p {
+    font-size: 12px;
+    line-height: 1.55;
+  }
+}
+
+.poster-mobile-break {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .poster-mobile-break {
+    display: block;
+  }
+}
+
+/* ===== 海报底部文案：电脑手机都固定两行 ===== */
+
+.poster-bottom-copy strong {
+  display: block;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.poster-copy-line {
+  display: block;
+  white-space: nowrap;
+}
+
+.poster-bottom-copy p {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .poster-bottom-v2 {
+    gap: 12px;
+    padding: 18px 16px;
+  }
+
+  .poster-bottom-v2 .poster-qr-box {
+    flex: 0 0 82px;
+    width: 82px;
+    height: 82px;
+  }
+
+  .poster-bottom-copy strong {
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.35;
+    letter-spacing: -0.04em;
+  }
+}
+
+/* ===== 手机端：防止海报在窄屏被拉长 ===== */
+
+@media (max-width: 720px) {
+  .poster-card-v2 {
+    width: min(100%, 390px);
+  }
+
+  .poster-hero-v2 {
+    padding: 28px 18px 14px;
+  }
+
+  .poster-hero-v2 .poster-eyebrow {
+    font-size: 10px;
+    margin-bottom: 8px;
+  }
+
+  .poster-hero-v2 h3 {
+    font-size: clamp(28px, 9vw, 40px);
+  }
+
+  .poster-lead {
+    margin-top: 12px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .poster-radar-panel {
+    width: calc(100% - 22px);
+    margin: 6px auto 16px;
+    padding: 12px 10px 4px;
+  }
+
+  .poster-card-v2 #posterRadar {
+    height: clamp(245px, 68vw, 300px) !important;
+  }
+
+  .poster-bottom-v2 {
+    padding: 18px 16px 20px;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  .poster-bottom-v2 .poster-qr-box {
+    flex: 0 0 72px;
+    width: 72px;
+    height: 72px;
+    padding: 7px;
+    border-radius: 14px;
+  }
+
+  .poster-bottom-copy strong {
+    font-size: 13px;
+    line-height: 1.35;
+    font-weight: 800;
+  }
+
+  .poster-bottom-copy p {
+    font-size: 11px;
+    line-height: 1.5;
+  }
 }
