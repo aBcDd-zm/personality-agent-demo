@@ -66,6 +66,9 @@ const SCORE_KEY_TO_PERSONA = {
   bfi_N: "RISK",
 };
 
+const POSTER_EXPORT_WIDTH = 1080;
+const POSTER_EXPORT_HEIGHT = 1600;
+
 function countChars(text) {
   return (text || "").replace(/\s+/g, "").length;
 }
@@ -236,6 +239,293 @@ function renderInviteQrCode() {
     colorLight: "#ffffff",
     correctLevel: QRCode.CorrectLevel.M,
   });
+}
+
+function roundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawRoundRect(ctx, x, y, width, height, radius, fillStyle, strokeStyle = null, lineWidth = 1) {
+  roundedRect(ctx, x, y, width, height, radius);
+  ctx.fillStyle = fillStyle;
+  ctx.fill();
+  if (strokeStyle) {
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+  }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("图片加载失败，请稍后重试"));
+    img.src = src;
+  });
+}
+
+function drawImageContain(ctx, img, x, y, width, height) {
+  const ratio = Math.min(width / img.naturalWidth, height / img.naturalHeight);
+  const drawWidth = img.naturalWidth * ratio;
+  const drawHeight = img.naturalHeight * ratio;
+  const drawX = x + (width - drawWidth) / 2;
+  const drawY = y + (height - drawHeight) / 2;
+  ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+}
+
+function wrapCanvasText(ctx, text, maxWidth) {
+  const chars = Array.from(String(text || ""));
+  const lines = [];
+  let line = "";
+
+  chars.forEach((char) => {
+    const testLine = `${line}${char}`;
+    if (line && ctx.measureText(testLine).width > maxWidth) {
+      lines.push(line);
+      line = char;
+    } else {
+      line = testLine;
+    }
+  });
+
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawCenteredWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
+  const lines = wrapCanvasText(ctx, text, maxWidth).slice(0, maxLines);
+  lines.forEach((line, index) => {
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
+  return y + lines.length * lineHeight;
+}
+
+function drawLeftWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines = 3) {
+  const lines = wrapCanvasText(ctx, text, maxWidth).slice(0, maxLines);
+  lines.forEach((line, index) => {
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
+  return y + lines.length * lineHeight;
+}
+
+async function createQrCanvas(text, size) {
+  if (typeof QRCode === "undefined") {
+    throw new Error("二维码生成组件未加载，请刷新页面后重试");
+  }
+
+  const holder = document.createElement("div");
+  holder.style.position = "fixed";
+  holder.style.left = "-9999px";
+  holder.style.top = "0";
+  holder.style.width = `${size}px`;
+  holder.style.height = `${size}px`;
+  document.body.appendChild(holder);
+
+  new QRCode(holder, {
+    text,
+    width: size,
+    height: size,
+    colorDark: "#172033",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.M,
+  });
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  const qrCanvas = holder.querySelector("canvas");
+  if (qrCanvas) {
+    const copy = document.createElement("canvas");
+    copy.width = size;
+    copy.height = size;
+    copy.getContext("2d").drawImage(qrCanvas, 0, 0, size, size);
+    holder.remove();
+    return copy;
+  }
+
+  const qrImg = holder.querySelector("img");
+  if (qrImg?.src) {
+    const img = await loadImage(qrImg.src);
+    const copy = document.createElement("canvas");
+    copy.width = size;
+    copy.height = size;
+    copy.getContext("2d").drawImage(img, 0, 0, size, size);
+    holder.remove();
+    return copy;
+  }
+
+  holder.remove();
+  throw new Error("二维码生成失败，请稍后重试");
+}
+
+function canvasToBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("海报生成失败，请稍后重试"));
+    }, "image/png", 1);
+  });
+}
+
+async function buildPosterExportCanvas() {
+  const persona = getCurrentPersona();
+  const inviteUrl = getInviteUrl();
+  const canvas = document.createElement("canvas");
+  canvas.width = POSTER_EXPORT_WIDTH;
+  canvas.height = POSTER_EXPORT_HEIGHT;
+
+  const ctx = canvas.getContext("2d");
+  const personaImage = await loadImage(persona.image);
+  const qrCanvas = await createQrCanvas(inviteUrl, 300);
+
+  const bgGradient = ctx.createLinearGradient(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+  bgGradient.addColorStop(0, "#0f766e");
+  bgGradient.addColorStop(0.52, "#2563eb");
+  bgGradient.addColorStop(1, "#4f46e5");
+  ctx.fillStyle = bgGradient;
+  ctx.fillRect(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+
+  const glowOne = ctx.createRadialGradient(170, 170, 20, 170, 170, 360);
+  glowOne.addColorStop(0, "rgba(255,255,255,0.30)");
+  glowOne.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glowOne;
+  ctx.fillRect(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+
+  const glowTwo = ctx.createRadialGradient(920, 420, 20, 920, 420, 400);
+  glowTwo.addColorStop(0, "rgba(125,211,252,0.24)");
+  glowTwo.addColorStop(1, "rgba(125,211,252,0)");
+  ctx.fillStyle = glowTwo;
+  ctx.fillRect(0, 0, POSTER_EXPORT_WIDTH, POSTER_EXPORT_HEIGHT);
+
+  drawRoundRect(ctx, 48, 48, POSTER_EXPORT_WIDTH - 96, POSTER_EXPORT_HEIGHT - 96, 42, "rgba(255,255,255,0.05)", "rgba(255,255,255,0.18)", 2);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
+  ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.letterSpacing = "0px";
+  ctx.fillText("WORKPLACE PERSONA REPORT", POSTER_EXPORT_WIDTH / 2, 122);
+
+  const imgBox = { x: 318, y: 175, width: 444, height: 554 };
+  ctx.save();
+  ctx.shadowColor = "rgba(23,32,51,0.26)";
+  ctx.shadowBlur = 46;
+  ctx.shadowOffsetY = 24;
+  drawRoundRect(ctx, imgBox.x, imgBox.y, imgBox.width, imgBox.height, 42, "rgba(255,255,255,0.16)", "rgba(255,255,255,0.42)", 2);
+  ctx.restore();
+
+  ctx.save();
+  roundedRect(ctx, imgBox.x + 12, imgBox.y + 12, imgBox.width - 24, imgBox.height - 24, 34);
+  ctx.clip();
+  drawImageContain(ctx, personaImage, imgBox.x + 18, imgBox.y + 18, imgBox.width - 36, imgBox.height - 36);
+  ctx.restore();
+
+  ctx.fillStyle = "rgba(255,255,255,0.76)";
+  ctx.font = "900 34px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.fillText(persona.code, POSTER_EXPORT_WIDTH / 2, 800);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "900 76px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.fillText(`「${persona.name}」`, POSTER_EXPORT_WIDTH / 2, 892);
+
+  ctx.fillStyle = "rgba(255,255,255,0.90)";
+  ctx.font = "600 34px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  drawCenteredWrappedText(ctx, persona.slogan, POSTER_EXPORT_WIDTH / 2, 970, 820, 52, 3);
+
+  const tagY = 1124;
+  const tagGap = 18;
+  ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  const tagWidths = persona.tags.map((tag) => Math.ceil(ctx.measureText(tag).width) + 54);
+  const totalTagWidth = tagWidths.reduce((sum, width) => sum + width, 0) + tagGap * Math.max(0, tagWidths.length - 1);
+  let tagX = (POSTER_EXPORT_WIDTH - totalTagWidth) / 2;
+  persona.tags.forEach((tag, index) => {
+    const width = tagWidths[index];
+    drawRoundRect(ctx, tagX, tagY, width, 54, 27, "rgba(255,255,255,0.15)", "rgba(255,255,255,0.28)", 1.5);
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.fillText(tag, tagX + width / 2, tagY + 37);
+    tagX += width + tagGap;
+  });
+
+  const bottomY = 1248;
+  drawRoundRect(ctx, 78, bottomY, POSTER_EXPORT_WIDTH - 156, 260, 34, "rgba(255,255,255,0.96)", "rgba(216,222,233,0.92)", 2);
+
+  const qrBoxX = 132;
+  const qrBoxY = bottomY + 24;
+  drawRoundRect(ctx, qrBoxX, qrBoxY, 220, 220, 30, "#ffffff", "rgba(216,222,233,0.96)", 2);
+  ctx.drawImage(qrCanvas, qrBoxX + 10, qrBoxY + 10, 200, 200);
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#172033";
+  ctx.font = "900 42px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.fillText("长按保存，转发给朋友", 400, bottomY + 82);
+  ctx.fillText("邀请他们生成自己的专属职场人格画像", 400, bottomY + 138);
+
+  ctx.fillStyle = "#667085";
+  ctx.font = "700 24px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  drawLeftWrappedText(ctx, "扫码进入测评首页，从头生成自己的结果", 400, bottomY + 190, 540, 34, 2);
+
+  canvas.dataset.inviteUrl = inviteUrl;
+  return canvas;
+}
+
+async function exportPosterImage() {
+  const button = $("savePosterBtn");
+  const status = $("posterExportStatus");
+  const img = $("resultPosterImg");
+  const downloadLink = $("posterDownloadLink");
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.innerText = "正在生成海报...";
+    }
+    if (status) {
+      status.textContent = "正在生成完整海报图片，请稍候。";
+      status.classList.remove("error");
+    }
+
+    const canvas = await buildPosterExportCanvas();
+    const dataUrl = canvas.toDataURL("image/png");
+    const inviteUrl = canvas.dataset.inviteUrl || getInviteUrl();
+
+    if (img) {
+      img.src = dataUrl;
+      img.alt = "完整结果海报，包含人格卡、人格名称、邀请文案和二维码";
+      img.setAttribute("data-invite-url", inviteUrl);
+      img.classList.remove("hidden");
+    }
+
+    if (downloadLink) {
+      downloadLink.href = dataUrl;
+      downloadLink.download = `workplace-persona-${state.participantId || "poster"}.png`;
+      downloadLink.classList.remove("hidden");
+    }
+
+    if (status) {
+      status.textContent = "海报已生成。手机端请长按下方完整海报图片保存；电脑端可点击下载。";
+    }
+  } catch (err) {
+    if (status) {
+      status.textContent = err.message || "海报生成失败，请稍后重试。";
+      status.classList.add("error");
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.innerText = "保存结果海报";
+    }
+  }
 }
 
 function formatReviewText(text) {
@@ -907,6 +1197,15 @@ function renderPoster({ scroll = true } = {}) {
         </strong>
       </div>
     </article>
+
+    <div class="poster-export-panel">
+      <button class="primary poster-save-btn" id="savePosterBtn">保存结果海报</button>
+      <p class="poster-export-hint" id="posterExportStatus">
+        点击后会生成一张完整海报图片。手机端长按图片保存，电脑端可下载。
+      </p>
+      <img class="result-poster-img hidden" id="resultPosterImg" alt="完整结果海报">
+      <a class="secondary link-btn poster-download-link hidden" id="posterDownloadLink" href="#" download="workplace-persona-poster.png">下载海报 PNG</a>
+    </div>
   `;
 
   posterSection.classList.remove("hidden");
@@ -914,6 +1213,7 @@ function renderPoster({ scroll = true } = {}) {
   requestAnimationFrame(() => {
     drawPosterRadar(posterScores);
     renderInviteQrCode();
+    $("savePosterBtn")?.addEventListener("click", exportPosterImage);
     if (scroll) {
       posterSection.scrollIntoView({ behavior: "smooth", block: "start" });
     }
