@@ -215,11 +215,15 @@ function captureReferralParam() {
   }
 }
 
+const PUBLIC_INVITE_BASE_URL = "http://139.196.23.47";
+
 function getInviteUrl() {
-  const inviteUrl = new URL("/", window.location.origin);
+  const inviteUrl = new URL("/", PUBLIC_INVITE_BASE_URL);
+
   if (state.participantId) {
     inviteUrl.searchParams.set("ref", state.participantId);
   }
+
   return inviteUrl.href;
 }
 
