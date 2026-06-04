@@ -3,6 +3,7 @@ const state = {
   config: null,
   bfiAnswers: {},
   bfiScores: null,
+  resultPayload: null,
   currentTaskIndex: 0,
   taskAnswers: [],
 };
@@ -57,6 +58,14 @@ const POSTER_TRAITS = [
   { key: "bfi_A", name: "宜人性", english: "Agreeableness" },
   { key: "bfi_N", name: "神经质", english: "Neuroticism" },
 ];
+
+const SCORE_KEY_TO_PERSONA = {
+  bfi_O: "IDEA",
+  bfi_C: "DONE",
+  bfi_E: "MIC",
+  bfi_A: "MOOD",
+  bfi_N: "RISK",
+};
 
 function countChars(text) {
   return (text || "").replace(/\s+/g, "").length;
@@ -415,6 +424,7 @@ async function startSession() {
   state.participantId = data.participant_id;
   state.bfiAnswers = {};
   state.bfiScores = null;
+  state.resultPayload = null;
   state.currentTaskIndex = 0;
   state.taskAnswers = [];
 
@@ -453,6 +463,7 @@ for (const q of questions) {
 
     state.bfiAnswers = answers;
     state.bfiScores = data.scores;
+    state.resultPayload = data;
     state.currentTaskIndex = 0;
     state.taskAnswers = [];
 
@@ -580,6 +591,74 @@ function getPosterScores() {
       displayScore: percent === null ? "-" : `${percent}`,
     };
   });
+}
+
+function getPercentScoreMap(scores = state.bfiScores || {}) {
+  return POSTER_TRAITS.reduce((acc, trait) => {
+    acc[trait.key] = toPercentScore(scores[trait.key]);
+    return acc;
+  }, {});
+}
+
+function pickHighestTraitPersona(percentScores) {
+  const ranked = Object.entries(SCORE_KEY_TO_PERSONA)
+    .map(([key, code], index) => ({
+      key,
+      code,
+      index,
+      value: Number.isFinite(percentScores[key]) ? percentScores[key] : -1,
+    }))
+    .sort((a, b) => {
+      if (b.value !== a.value) return b.value - a.value;
+      return a.index - b.index;
+    });
+
+  return ranked[0]?.code || "DONE";
+}
+
+function selectPersonaCodeFromScores(scores = state.bfiScores || {}) {
+  const percentScores = getPercentScoreMap(scores);
+  const extraversion = percentScores.bfi_E ?? 0;
+  const agreeableness = percentScores.bfi_A ?? 0;
+  const conscientiousness = percentScores.bfi_C ?? 0;
+  const neuroticism = percentScores.bfi_N ?? 0;
+  const openness = percentScores.bfi_O ?? 0;
+
+  if (conscientiousness >= 72 && extraversion >= 55) return "CTRL";
+  if (neuroticism >= 68 && conscientiousness >= 48) return "RISK";
+  if (extraversion <= 35 && conscientiousness >= 55) return "DIVE";
+  if (agreeableness >= 68 && extraversion >= 42) return "GLUE";
+  if (extraversion >= 68) return "MIC";
+  if (openness >= 68) return "IDEA";
+  if (conscientiousness >= 68) return "DONE";
+  if (agreeableness >= 62) return "MOOD";
+
+  return pickHighestTraitPersona(percentScores);
+}
+
+function getBackendPersonaCode(payload = state.resultPayload || {}) {
+  return payload.personaCode || payload.persona_code || payload.persona?.code || "";
+}
+
+function getCurrentPersona() {
+  const backendCode = getBackendPersonaCode();
+  const fallbackCode = selectPersonaCodeFromScores();
+  const code = backendCode || fallbackCode;
+
+  return window.getPersonaCard ? window.getPersonaCard(code) : {
+    code: "DONE",
+    name: "进度条本人",
+    image: "",
+    slogan: "事情到你手里，就开始稳定地往100%走。",
+    tags: ["稳定交付", "靠谱推进", "deadline亲属"],
+    accent: "#52677f",
+  };
+}
+
+function getPersonaTagsHtml(persona, className = "persona-tag") {
+  return persona.tags.map((tag) => `
+    <span class="${className}">${escapeHtml(tag)}</span>
+  `).join("");
 }
 
 const POSTER_PAIR_PERSONAS = {
@@ -732,23 +811,16 @@ function hidePoster() {
   if (posterButton) {
     posterButton.innerText = "感谢您的参与，点击生成人格海报";
     posterButton.disabled = false;
+    posterButton.classList.remove("hidden");
   }
 }
 
-function renderPoster() {
+function renderPoster({ scroll = true } = {}) {
   const posterSection = $("posterSection");
   if (!posterSection) return;
 
   const posterScores = getPosterScores();
-  const pairResult = getTopPosterTraitPair(posterScores);
-  const primaryPair = pairResult.primaryPair;
-  const primaryPairKeys = new Set(primaryPair.map((item) => item.key));
-  const persona = getPosterPairPersona(primaryPair);
-  const pairNames = getPairNames(primaryPair);
-
-  const tieNote = pairResult.hasTie
-    ? `<p class="poster-tie-note">检测到分数并列，可能画像组合：${getTiePairText(pairResult.candidatePairs)}。当前海报优先展示「${pairNames}」。</p>`
-    : "";
+  const persona = getCurrentPersona();
 
   const qrMarkup = POSTER_QR_IMAGE_SRC
     ? `<img class="poster-qr-img" src="${escapeHtml(POSTER_QR_IMAGE_SRC)}" alt="扫码参与测评二维码">`
@@ -761,14 +833,20 @@ function renderPoster() {
 
       <div class="poster-hero poster-hero-v2">
         <p class="poster-eyebrow">WORKPLACE PERSONA REPORT</p>
-        <h3>「${persona.name}」</h3>
+        <div class="poster-persona-figure">
+          <img src="${escapeHtml(persona.image)}" alt="${escapeHtml(`${persona.code}｜${persona.name}`)}">
+        </div>
+
+        <p class="poster-persona-code">${escapeHtml(persona.code)}</p>
+        <h3>「${escapeHtml(persona.name)}」</h3>
 
         <p class="poster-lead">
-          你的职场关键词是 <strong>${pairNames}</strong><br>
-          ${persona.text}
+          ${escapeHtml(persona.slogan)}
         </p>
 
-        ${tieNote}
+        <div class="poster-persona-tags">
+          ${getPersonaTagsHtml(persona, "poster-persona-tag")}
+        </div>
       </div>
 
       <div class="poster-radar-panel">
@@ -780,16 +858,6 @@ function renderPoster() {
         <div class="poster-radar-wrap">
           <canvas id="posterRadar" aria-label="五项人格雷达图"></canvas>
         </div>
-      </div>
-
-      <div class="poster-score-grid poster-score-grid-v2">
-        ${posterScores.map((item) => `
-          <div class="poster-score-item ${primaryPairKeys.has(item.key) ? "is-top" : ""}">
-            <span>${item.name}</span>
-            <strong>${item.displayScore}</strong>
-            <small>${item.english}</small>
-          </div>
-        `).join("")}
       </div>
 
       <div class="poster-bottom poster-bottom-v2">
@@ -810,7 +878,9 @@ function renderPoster() {
 
   requestAnimationFrame(() => {
     drawPosterRadar(posterScores);
-    posterSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (scroll) {
+      posterSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   });
 }
 
@@ -906,42 +976,122 @@ function drawPosterRadar(items) {
   });
 }
 
+function drawResultRadar(items) {
+  const canvas = $("resultRadar");
+  if (!canvas) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(rect.width, 280);
+  const height = Math.max(rect.height, 280);
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const centerX = width / 2;
+  const centerY = height / 2 + 8;
+  const radius = Math.min(width, height) * 0.34;
+  const labelRadius = Math.min(width, height) * 0.43;
+  const startAngle = -Math.PI / 2;
+
+  function getPoint(index, valueRadius) {
+    const angle = startAngle + (Math.PI * 2 * index) / items.length;
+    return {
+      x: centerX + Math.cos(angle) * valueRadius,
+      y: centerY + Math.sin(angle) * valueRadius,
+    };
+  }
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(31, 95, 91, 0.22)";
+  ctx.fillStyle = "rgba(31, 95, 91, 0.035)";
+
+  for (let level = 5; level >= 1; level -= 1) {
+    const levelRadius = (radius * level) / 5;
+    ctx.beginPath();
+    items.forEach((_, index) => {
+      const point = getPoint(index, levelRadius);
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  items.forEach((_, index) => {
+    const point = getPoint(index, radius);
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(point.x, point.y);
+    ctx.stroke();
+  });
+
+  const dataPoints = items.map((item, index) => {
+    const value = item.percent === null ? 0 : item.percent;
+    return getPoint(index, radius * (value / 100));
+  });
+
+  ctx.beginPath();
+  dataPoints.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = "rgba(53, 87, 216, 0.18)";
+  ctx.strokeStyle = "#1f5f5b";
+  ctx.lineWidth = 2.5;
+  ctx.fill();
+  ctx.stroke();
+
+  dataPoints.forEach((point) => {
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#3557d8";
+    ctx.fill();
+  });
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  items.forEach((item, index) => {
+    const labelPoint = getPoint(index, labelRadius);
+    ctx.fillStyle = "#172033";
+    ctx.font = "700 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.fillText(item.name, labelPoint.x, labelPoint.y - 8);
+    ctx.fillStyle = "#667085";
+    ctx.font = "600 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.fillText(`${item.displayScore}分`, labelPoint.x, labelPoint.y + 12);
+  });
+}
+
 function renderFinish() {
   clearValidationErrors();
   hidePoster();
   renderBfiReviewPanel("bfiFinishReview");
   renderTaskAnswerReview("taskFinishReview");
 
-  const scores = state.bfiScores || {};
+  const scoreBox = $("scoreBox");
+  if (scoreBox) {
+    scoreBox.innerHTML = "";
+    scoreBox.classList.add("hidden");
+  }
 
-  $("scoreBox").innerHTML = REPORT_TRAITS.map((trait) => {
-    const percent = toPercentScore(scores[trait.key]);
-    const displayScore = percent === null ? "-" : `${percent}/100`;
-    const barWidth = percent === null ? 0 : percent;
-    return `
-      <article class="trait-card">
-        <div class="trait-heading">
-          <div>
-            <h3>${trait.name}</h3>
-            <p>${trait.english}</p>
-          </div>
-          <strong>${displayScore}</strong>
-        </div>
-        <div class="trait-meter" aria-label="${trait.name}百分制结果">
-          <div style="width: ${barWidth}%"></div>
-        </div>
-        <div class="trait-text-row">
-          <b>解释：</b>
-          <span>${trait.meaning}</span>
-        </div>
+  const finishActions = document.querySelector(".finish-actions");
+  if (finishActions) {
+    finishActions.classList.add("hidden");
+  }
 
-        <div class="trait-text-row">
-          <b>职场表现：</b>
-          <span>${formatWorkplaceText(trait.workplace)}</span>
-        </div>
-      </article>
-    `;
-  }).join("");
+  const posterButton = $("generatePosterBtn");
+  if (posterButton) {
+    posterButton.classList.add("hidden");
+  }
+
+  requestAnimationFrame(() => renderPoster({ scroll: false }));
 }
 
 function restart() {
@@ -952,6 +1102,7 @@ function restart() {
   state.participantId = "";
   state.bfiAnswers = {};
   state.bfiScores = null;
+  state.resultPayload = null;
   state.currentTaskIndex = 0;
   state.taskAnswers = [];
 
@@ -1200,7 +1351,6 @@ function setupDevPreview() {
   } else if (page === "poster") {
     renderFinish();
     showScreen("finish");
-    renderPoster();
   } else {
     showScreen(page);
   }
