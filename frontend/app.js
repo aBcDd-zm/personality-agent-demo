@@ -66,6 +66,7 @@ const SCORE_KEY_TO_PERSONA = {
   bfi_N: "RISK",
 };
 
+const POSTER_TITLE = "职场人格画像报告";
 const POSTER_EXPORT_WIDTH = 1080;
 const POSTER_EXPORT_HEIGHT = 2140;
 const MOBILE_POSTER_QUERY = "(max-width: 720px)";
@@ -515,9 +516,9 @@ async function buildPosterExportCanvas() {
 
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(255,255,255,0.78)";
-  ctx.font = "900 28px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
+  ctx.font = "900 34px -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif";
   ctx.letterSpacing = "0px";
-  ctx.fillText("WORKPLACE PERSONA REPORT", POSTER_EXPORT_WIDTH / 2, 122);
+  ctx.fillText(POSTER_TITLE, POSTER_EXPORT_WIDTH / 2, 122);
 
   const imgBox = { x: 318, y: 175, width: 444, height: 554 };
   ctx.save();
@@ -1326,7 +1327,7 @@ function renderPoster({ scroll = true } = {}) {
       <div class="poster-glow poster-glow-two"></div>
 
       <div class="poster-hero poster-hero-v2">
-        <p class="poster-eyebrow">WORKPLACE PERSONA REPORT</p>
+        <p class="poster-eyebrow">${POSTER_TITLE}</p>
         <div class="poster-persona-figure">
           <img src="${escapeHtml(persona.image)}" alt="${escapeHtml(`${persona.code}｜${persona.name}`)}">
         </div>
