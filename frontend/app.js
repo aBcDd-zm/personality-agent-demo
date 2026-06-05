@@ -66,7 +66,7 @@ const SCORE_KEY_TO_PERSONA = {
   bfi_N: "RISK",
 };
 
-const POSTER_TITLE = "职场人格画像报告";
+const POSTER_TITLE = "我的职场人格报告";
 const POSTER_EXPORT_WIDTH = 1080;
 const POSTER_EXPORT_HEIGHT = 2140;
 const MOBILE_POSTER_QUERY = "(max-width: 720px)";
