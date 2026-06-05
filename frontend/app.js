@@ -69,10 +69,34 @@ const SCORE_KEY_TO_PERSONA = {
 const POSTER_TITLE = "我的职场人格报告";
 const POSTER_EXPORT_WIDTH = 1080;
 const POSTER_EXPORT_HEIGHT = 2140;
-const MOBILE_POSTER_QUERY = "(max-width: 720px)";
+const MOBILE_POSTER_QUERY = "(max-width: 1366px)";
+
+function isIPadLikeDevice() {
+  const ua = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+
+  return (
+    /iPad/i.test(ua) ||
+    (platform === "MacIntel" && navigator.maxTouchPoints > 1) ||
+    (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)
+  );
+}
 
 function isMobilePosterViewport() {
-  return window.matchMedia?.(MOBILE_POSTER_QUERY).matches || window.innerWidth <= 720;
+  const isSmallOrTabletScreen =
+    window.matchMedia?.(MOBILE_POSTER_QUERY).matches ||
+    window.innerWidth <= 1366;
+
+  const isTouchDevice =
+    window.matchMedia?.("(pointer: coarse)").matches ||
+    navigator.maxTouchPoints > 0 ||
+    isIPadLikeDevice();
+
+  const result = isSmallOrTabletScreen && isTouchDevice;
+
+  document.body.classList.toggle("is-touch-poster", result);
+
+  return result;
 }
 
 function countChars(text) {
@@ -481,6 +505,15 @@ function canvasToBlob(canvas) {
   });
 }
 
+function downloadPosterDataUrl(dataUrl) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = `workplace-persona-${state.participantId || "poster"}.png`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 async function buildPosterExportCanvas() {
   const persona = getCurrentPersona();
   const posterScores = getPosterScores();
@@ -652,10 +685,13 @@ async function exportPosterImage() {
   const poster = $("personalityPoster");
 
   try {
+    const isMobile = isMobilePosterViewport();
+
     if (button) {
       button.disabled = true;
       button.innerText = "正在生成海报...";
     }
+
     if (status) {
       status.textContent = "正在生成完整海报图片，请稍候。";
       status.classList.remove("error");
@@ -665,6 +701,7 @@ async function exportPosterImage() {
     const dataUrl = canvas.toDataURL("image/png");
     const inviteUrl = canvas.dataset.inviteUrl || getInviteUrl();
 
+    // 生成后，把上方海报替换成完整 PNG 图片
     if (img) {
       img.src = dataUrl;
       img.alt = "完整结果海报，包含人格卡、人格名称、邀请文案和二维码";
@@ -672,18 +709,28 @@ async function exportPosterImage() {
       img.classList.remove("hidden");
     }
 
+    // 隐藏原来的 HTML 海报预览，只保留完整图片
     if (poster) {
       poster.classList.add("hidden");
     }
 
+    // 不再显示第二个“下载海报 PNG”按钮
     if (downloadLink) {
       downloadLink.href = dataUrl;
       downloadLink.download = `workplace-persona-${state.participantId || "poster"}.png`;
-      downloadLink.classList.remove("hidden");
+      downloadLink.classList.add("hidden");
+    }
+
+    // 电脑端：点击“保存结果海报”后直接下载
+    // 手机端：不自动下载，只生成图片让用户长按保存
+    if (!isMobile) {
+      downloadPosterDataUrl(dataUrl);
     }
 
     if (status) {
-      status.textContent = "海报已生成。手机端请长按上方完整海报图片保存；电脑端可点击下载。";
+      status.textContent = isMobile
+        ? "海报已生成。请长按上方完整海报图片保存。"
+        : "海报已生成，并已开始下载。";
     }
   } catch (err) {
     if (status) {
@@ -1372,7 +1419,7 @@ function renderPoster({ scroll = true } = {}) {
     <div class="poster-export-panel">
       <button class="primary poster-save-btn" id="savePosterBtn">保存结果海报</button>
       <p class="poster-export-hint" id="posterExportStatus">
-        点击后会把上方海报转换成完整 PNG。手机端长按上方图片保存，电脑端可下载。
+        点击可下载完整海报。
       </p>
       <a class="secondary link-btn poster-download-link hidden" id="posterDownloadLink" href="#" download="workplace-persona-poster.png">下载海报 PNG</a>
     </div>

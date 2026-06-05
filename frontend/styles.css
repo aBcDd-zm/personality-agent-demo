@@ -2735,3 +2735,17 @@ body.cover-mode .app-shell {
     margin-top: 0;
   }
 }
+
+/* ===== iPhone / iPad：自动生成完整图片后隐藏下载按钮区域 ===== */
+
+@media (max-width: 1366px) {
+  body.is-touch-poster .poster-export-panel {
+    display: none !important;
+  }
+
+  body.is-touch-poster .result-poster-img {
+    width: 100%;
+    max-width: 720px;
+    border-radius: 22px;
+  }
+}
